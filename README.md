@@ -1,0 +1,1 @@
+Experiment conducted at OIST Nov 2018 to test life-stage spanning microbiome effect from early larvae stage, through pupation to the final adult microbiome establishment in the metamorphic honey bee system.
