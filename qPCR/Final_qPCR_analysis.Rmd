@@ -1,0 +1,453 @@
+---
+title: "Final_qPCR"
+author: "Vienna"
+date: "4/24/2021"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+options(stringsAsFactors = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(ggpubr) #<-ggerrorplot function
+library(rstatix)
+library(broom)
+library(olsrr)
+
+set.seed(123)
+
+setwd("C:/Users/Yoann/Desktop/Vienna/Experiments/adult-larvae_project/qPCR/Final_qPCR")
+```
+
+```{r adults_load}
+all<- read.table("data_files/adults_qPCR.txt", header=TRUE)
+all_bee<-subset(all, treatment != "Nurse" & treatment != "AG_lg")
+all_bee <- droplevels(all_bee)
+all_bee$treatment = factor(all_bee$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+```
+
+```{r adults}
+
+###16S copy number per bee
+
+p<-ggerrorplot(all_bee, x = "treatment", y = "copies_16S_per_bee",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("16S copies per bee")
+p<-p+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=15))
+
+p<-p+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("plots/adults_total_16S_select_per_bee.png", height = 3.5, width = 6.5)
+```
+
+#### Pairwise comparisons
+```{r stat}
+
+AG<-subset(all, treatment == "AG")
+BB<-subset(all, treatment == "BB")
+C<-subset(all, treatment == "C")
+LG<-subset(all, treatment == "LG")
+LGBB<-subset(all, treatment == "LGBB")
+Hive<-subset(all, treatment == "Hive")
+
+
+wilcox.test(AG$copies_16S_per_bee,Hive$copies_16S_per_bee)
+wilcox.test(BB$copies_16S_per_bee,Hive$copies_16S_per_bee)
+wilcox.test(C$copies_16S_per_bee,Hive$copies_16S_per_bee)
+wilcox.test(LG$copies_16S_per_bee,Hive$copies_16S_per_bee)
+wilcox.test(LGBB$copies_16S_per_bee,Hive$copies_16S_per_bee)
+
+pvalues <- c(1,0.11,0.45,0.04,0.45)
+p.adjust(pvalues,method="fdr")
+#1.0000 0.2750 0.5625 0.2000 0.5625
+```
+
+
+```{r ancova_adult}
+
+ggplot(all_bee, aes(y = copies_16S_per_bee, x = Actin_copies_per_bee)) + geom_point() + geom_smooth(method = "lm")
+
+model = lm(copies_16S_per_bee ~ Actin_copies_per_bee+treatment,data = all_bee)
+
+#code to create the density plot of residuals
+plot(density(model$residuals))
+
+#code to create a Q-Q plot
+qqnorm(model$residuals)
+qqline(model$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+ols_test_normality(model)
+
+#code to create a fitted values vs residuals plot
+plot(model$residuals~model$fitted.values)
+lines(lowess(model$fitted.values,model$residuals), col="blue")
+text(model$fitted.values, model$residuals, row.names(all_bee), cex=0.6, pos=4, col="red")
+
+# we should transform data
+
+log_16S = log(all_bee$copies_16S_per_bee)
+
+### set Hive control as reference treatment
+levels(all_bee$treatment)
+
+all_bee$treatment <- relevel(all_bee$treatment, ref="Hive")
+levels(all_bee$treatment)
+
+
+#code to run the ancova test on the transformed data
+ancova<-lm(log_16S~Actin_copies_per_bee+treatment, data=all_bee)
+
+#code to create the density plot of residuals
+plot(density(ancova$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova$residuals)
+qqline(ancova$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova$residuals~ancova$fitted.values)
+lines(lowess(ancova$fitted.values,ancova$residuals), col="blue")
+text(ancova$fitted.values, ancova$residuals, row.names(all_bee), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova,type="3")
+```
+
+
+```{r emmeans}
+
+# Inspect the model diagnostic metrics
+model.metrics <- augment(ancova) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- all_bee %>% anova_test(log(copies_16S)~Actin_copies_per_bee+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc <- all_bee %>% mutate(log16S = log(copies_16S)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = Actin_copies_per_bee,
+    p.adjust.method = "fdr"
+    )
+pwc
+
+
+pwc <- pwc %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+ggline(get_emmeans(pwc), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+coord_cartesian(ylim = c(10, 14))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("plots/emmeans_adults.png", height = 3.5, width = 6.5)
+
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(0.27,0.67,0.11,0.03,0.38)
+p.adjust(pvalues,method="fdr")
+#0.450 0.670 0.275 0.150 0.475
+```
+
+
+## Larva
+
+### 16S copies/sample 
+```{r larva}
+all_larva<- read.table("data_files/qPCR_data_for_R_larva.txt", header=TRUE)
+
+all_larva$date = factor(all_larva$date,levels=c("start","day_three","day_six"), labels=c("start","day three","day six"))
+
+## per sample
+all_three<-subset(all_larva, date == "day three")
+all_three$treatment = factor(all_three$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+p1<-ggerrorplot(all_three,x = "treatment", y = "copies_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("16S copies per sample")+ylim(0, 6000000)
+p1<-p1+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+p1<-p1+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p1+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("plots/larva_16S_day_three_per_sample.png", height = 4, width = 6)
+
+
+all_six<-subset(all_larva, date == "day six")
+all_six$treatment = factor(all_six$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+p2<-ggerrorplot(all_six,x = "treatment", y = "copies_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("Total 16S copies per sample")+ylim(0, 600000000)
+p2<-p2+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_blank())
+p2<-p2+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p2+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("plots/larva_total_16S_day_six_per_sample.png", height = 4, width = 6)
+
+library(egg) #helps to correctly align the plots
+
+figure_1 <- "combined_abundance_per_sample_larva.png"
+png(figure_1, 11 * plot_res, 3 * plot_res, res = plot_res)
+ggarrange(p1,p2, nrow=1,labels = c("A", "B"))
+invisible(dev.off())
+knitr::include_graphics(figure_1, dpi = plot_res)
+```
+
+#### Pairwise comparisons
+```{r stat2}
+
+AG<-subset(all_three, treatment == "AG")
+BB<-subset(all_three, treatment == "BB")
+C<-subset(all_three, treatment == "C")
+LG<-subset(all_three, treatment == "LG")
+LGBB<-subset(all_three, treatment == "LGBB")
+Hive<-subset(all_three, treatment == "Hive")
+
+
+wilcox.test(AG$copies_16S_per_sample,Hive$copies_16S_per_sample)
+wilcox.test(BB$copies_16S_per_sample,Hive$copies_16S_per_sample)
+wilcox.test(C$copies_16S_per_sample,Hive$copies_16S_per_sample)
+wilcox.test(LG$copies_16S_per_sample,Hive$copies_16S_per_sample)
+wilcox.test(LGBB$copies_16S_per_sample,Hive$copies_16S_per_sample)
+
+pvalues <- c(0.008,0.22,0.15,0.008,0.008)
+p.adjust(pvalues,method="fdr")
+#0.01333333 0.22000000 0.18750000 0.01333333 0.01333333
+
+
+AG2<-subset(all_six, treatment == "AG")
+BB2<-subset(all_six, treatment == "BB")
+C2<-subset(all_six, treatment == "C")
+LG2<-subset(all_six, treatment == "LG")
+LGBB2<-subset(all_six, treatment == "LGBB")
+Hive2<-subset(all_six, treatment == "Hive")
+
+
+wilcox.test(AG2$copies_16S_per_sample,Hive2$copies_16S_per_sample)
+wilcox.test(BB2$copies_16S_per_sample,Hive2$copies_16S_per_sample)
+wilcox.test(C2$copies_16S_per_sample,Hive2$copies_16S_per_sample)
+wilcox.test(LG2$copies_16S_per_sample,Hive2$copies_16S_per_sample)
+wilcox.test(LGBB2$copies_16S_per_sample,Hive2$copies_16S_per_sample)
+
+pvalues <- c(0.61,0.002,0.004,0.18,0.002)
+p.adjust(pvalues,method="fdr")
+#0.610000000 0.005000000 0.006666667 0.225000000 0.005000000
+```
+
+
+
+```{r ancova_larva}
+
+ggplot(all_six, aes(y = copies_16S_per_sample, x = Actin_copies_per_sample)) + geom_point() + geom_smooth(method = "lm")
+
+model2 = lm(copies_16S_per_sample ~ Actin_copies_per_sample+treatment,data = all_six)
+
+#code to create the density plot of residuals
+plot(density(model2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(model2$residuals)
+qqline(model2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+ols_test_normality(model2)
+
+#code to create a fitted values vs residuals plot
+plot(model2$residuals~model2$fitted.values)
+lines(lowess(model2$fitted.values,model2$residuals), col="blue")
+text(model2$fitted.values, model2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+# we should transform data
+
+log_16S = log(all_six$copies_16S_per_sample)
+
+### set Hive control as reference treatment
+levels(all_six$treatment)
+
+all_six$treatment <- relevel(all_six$treatment, ref="Hive")
+levels(all_six$treatment)
+
+
+#code to run the ancova test on the transformed data
+ancova2<-lm(log_16S~Actin_copies_per_sample+treatment, data=all_six)
+
+#code to create the density plot of residuals
+plot(density(ancova2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova2$residuals)
+qqline(ancova2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova2$residuals~ancova2$fitted.values)
+lines(lowess(ancova2$fitted.values,ancova2$residuals), col="blue")
+text(ancova2$fitted.values, ancova2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova2,type="3")
+```
+
+```{r emmeans_day_six}
+
+# Inspect the model diagnostic metrics
+model.metrics <- augment(ancova2) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- all_six %>% anova_test(log(copies_16S)~Actin_copies_per_sample+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc2 <- all_six %>% mutate(log16S = log(copies_16S)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = Actin_copies_per_sample,
+    p.adjust.method = "fdr"
+    )
+pwc2
+
+
+pwc2 <- pwc2 %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+ggline(get_emmeans(pwc2), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+coord_cartesian(ylim = c(2.5, 15))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("plots/emmeans_larva_day_six.png", height = 3.5, width = 6.5)
+
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(0.0000000000015,0.96,0.33,0.00000000037,0.019)
+p.adjust(pvalues,method="fdr")
+#7.500000e-12 0.96 0.4 9.250000e-10 0.03
+```
+
+
+```{r day_three}
+## per sample
+all_three<-subset(all_larva, date == "day three")
+all_three$treatment = factor(all_three$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+# we should transform data
+log_16S = log(all_three$copies_16S_per_sample)
+
+### set Hive control as reference treatment
+levels(all_three$treatment)
+
+all_three$treatment <- relevel(all_three$treatment, ref="Hive")
+levels(all_three$treatment)
+
+
+#code to run the ancova test on the transformed data
+ancova2<-lm(log_16S~Actin_copies_per_sample+treatment, data=all_three)
+
+#code to create the density plot of residuals
+plot(density(ancova2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova2$residuals)
+qqline(ancova2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova2$residuals~ancova2$fitted.values)
+lines(lowess(ancova2$fitted.values,ancova2$residuals), col="blue")
+text(ancova2$fitted.values, ancova2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova2,type="3")
+```
+
+```{r emmeans_day_three}
+
+# Inspect the model diagnostic metrics
+model.metrics <- augment(ancova2) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- all_three %>% anova_test(log(copies_16S)~Actin_copies_per_sample+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc2 <- all_three %>% mutate(log16S = log(copies_16S)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = Actin_copies_per_sample,
+    p.adjust.method = "fdr"
+    )
+pwc2
+
+
+pwc2 <- pwc2 %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+ggline(get_emmeans(pwc2), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+coord_cartesian(ylim = c(2.5, 9))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("plots/emmeans_larva_day_three.png", height = 3.5, width = 6.5)
+
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(0.14,0.0000048,0.00000005,0.28,0.0000000034)
+p.adjust(pvalues,method="fdr")
+#0.175 8.00e-06 1.25e-07 0.28 1.70e-08
+```
+
+## DNA vs RNA comparison across some larva samples
+
+```{r DNA_vs_RNA_larva}
+
+compare2<- read.table("data_files/qPCR_data_larva_RNA_and_DNA.txt", header=TRUE)
+compare2$treatment <- factor(compare2$treatment, levels = c("Hive","C","BB","LG"))
+
+p<-ggerrorplot(compare2,x = "treatment", y = "copies_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "type",position = position_dodge(0.4))+theme(legend.title = element_blank())+theme(axis.title.x = element_blank())+ ylab("Total 16S copies per sample")+scale_color_manual(values=c("#55596a", "#6ebe9f"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=1.9)))+theme(legend.text = element_text(size=15, face="bold"))
+p<-p+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+p<-p+ geom_jitter(position=position_jitter(0.2), alpha=0.7,size=2.1,aes(colour=type))+theme(legend.position='right')+ theme(legend.key.size = unit(1.5, 'lines'))
+p
+ggsave("plots/DNA_RNA_larva_16S.png", height = 4, width = 7)
+
+####log plot
+
+p<-ggerrorplot(compare2,x = "treatment", y = "log_copies_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "type",position = position_dodge(0.4))+theme(legend.title = element_blank())+theme(axis.title.x = element_blank())+ ylab("Total 16S copies per sample")+scale_color_manual(values=c("#55596a", "#6ebe9f"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=1.9)))+theme(legend.text = element_text(size=15, face="bold"))
+p<-p+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+p<-p+ geom_jitter(position=position_jitter(0.2), alpha=0.7,size=2.1,aes(colour=type))+theme(legend.position='right')+ theme(legend.key.size = unit(1.5, 'lines'))
+p
+ggsave("plots/DNA_RNA_larva_16S_log.png", height = 4, width = 7)
+```
+
+```{r statsDNA_vs_RNA_larva}
+## compare RNA and DNA qPCR results for each treatment. copy number per sample are chosen
+
+Hive_DNA_day_6<- c(158149260.6,299464933.4,38329650.55,210743448.4,157158956.8,29642113.99)
+Hive_RNA_day_6<- c(592517966.1,69099913.77,6490223.3,5300421.329,2200292.495,761495.3369)
+wilcox.test(Hive_DNA_day_6, Hive_RNA_day_6)
+wilcox.test(Hive_DNA_day_6, Hive_RNA_day_6,paired = T)
+wilcox.test(log(Hive_DNA_day_6), log(Hive_RNA_day_6),paired = T)
+
+C_DNA_day_6<- c(136144.1971,327896.419,338489.8574,191852.3266,83310.3936)
+C_RNA_day_6<- c(20576.18118,2939.033432,7064.685271,10102.5261,53527.54112)
+wilcox.test(C_DNA_day_6, C_RNA_day_6,paired = T)
+wilcox.test(log(C_DNA_day_6), log(C_RNA_day_6),paired = T)
+
+BB_DNA_day_6<- c(365559.5144,727079.2007,3817659.064,3623182.624,2676524.643,895496.4022)
+BB_RNA_day_6<- c(118855.4821,25123.08346,202746.5693,214357.3069,1335941.49,116913.895)
+wilcox.test(BB_DNA_day_6, BB_RNA_day_6)
+wilcox.test(BB_DNA_day_6, BB_RNA_day_6,paired = T)
+wilcox.test(log(BB_DNA_day_6), log(BB_RNA_day_6),paired = T)
+
+LG_DNA_day_6<- c(251392143.2,241259678.6,87163959.39,532901560.6,260541064.5,196896870.5)
+LG_RNA_day_6<- c(159421944.5,9352876.355,1151030.41,113017.632,2050368.6,1780547.052)
+wilcox.test(LG_DNA_day_6, LG_RNA_day_6)
+wilcox.test(LG_DNA_day_6, LG_RNA_day_6,paired = T)
+wilcox.test(log(LG_DNA_day_6), log(LG_RNA_day_6),paired = T)
+```
