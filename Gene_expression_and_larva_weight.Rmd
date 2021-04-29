@@ -173,7 +173,7 @@ geom_point(size=4)+xlab(paste0("PC1: ",percentVar[1],"% variance")) +
 ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
 coord_fixed()+theme_bw()+theme(legend.title = element_blank())+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))+ theme(legend.text = element_text(face="bold", size=15))+theme(axis.text = element_text(size=15))+theme(axis.title = element_text(size=16))+ylim(-50,50)+xlim(-75,75)
 
-ggsave("RNA/Larvae-output/pca_larva.png", height = 5, width = 5)
+ggsave("RNA/Larvae_output/pca_larva.png", height = 5, width = 5)
 ```
 
 ### MA plots treatments vs hive control
@@ -208,7 +208,7 @@ LGBB<-ggmaplot(resLFC_larva_LGBB, fdr = 0.05, fc = 1, size = 1.2,palette = c("#B
 library(patchwork)
 List <- list(AG,BB,C,LG,LGBB)
 Plot <- wrap_plots(List,nrow=1)
-ggsave("RNA/Larvae-output/larva_MA_all.png", height = 5, width = 15)
+ggsave("RNA/Larvae_output/larva_MA_all.png", height = 5, width = 15)
 ```
 
 
@@ -236,45 +236,45 @@ ggsave("RNA/Larvae-output/larva_MA_all.png", height = 5, width = 15)
 functions <- read_csv("RNA/data_files/annotationsBiomart.csv", col_types = cols()) %>% dplyr::select(Gene_ID=ensembl_gene_id,description=description)
 
 res_LG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "hive_control"))
-write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae-output/res_LG_all.csv")
+write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae_output/res_LG_all.csv")
 res_LG_sig<- subset(res_LG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_LG_sig)[which(names(res_LG_sig) == "row")] <- "Gene_ID"
 res_LG_sig<-merge(res_LG_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae-output/res_LG_sig.csv")
+write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae_output/res_LG_sig.csv")
 
 #How many adjusted p-values were less than 0.05?
 sum(res_LG_sig$padj < 0.05, na.rm=TRUE)
 
 res_AG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "hive_control"))
-write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae-output/res_AG_all.csv")
+write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae_output/res_AG_all.csv")
 res_AG_sig<- subset(res_AG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_AG_sig)[which(names(res_AG_sig) == "row")] <- "Gene_ID"
 res_AG_sig<-merge(res_AG_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae-output/res_AG_sig.csv")
+write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae_output/res_AG_sig.csv")
 sum(res_AG_sig$padj < 0.05, na.rm=TRUE)
 
 res_C_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "lab_food_nothing", "hive_control"))
-write.csv(as.data.frame(res_C_sig), file="RNA/Larvae-output/res_C_all.csv")
+write.csv(as.data.frame(res_C_sig), file="RNA/Larvae_output/res_C_all.csv")
 res_C_sig<- subset(res_C_sig, padj < 0.05)
 colnames(res_C_sig)[which(names(res_C_sig) == "row")] <- "Gene_ID"
 res_C_sig<-merge(res_C_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_C_sig), file="RNA/Larvae-output/res_C_sig.csv")
+write.csv(as.data.frame(res_C_sig), file="RNA/Larvae_output/res_C_sig.csv")
 sum(res_C_sig$padj < 0.05, na.rm=TRUE)
 
 res_LGBB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "hive_control"))
-write.csv(as.data.frame(res_LGBB_sig),file="RNA/Larvae-output/res_LGBB_all.csv")
+write.csv(as.data.frame(res_LGBB_sig),file="RNA/Larvae_output/res_LGBB_all.csv")
 res_LGBB_sig<- subset(res_LGBB_sig, padj < 0.05)
 colnames(res_LGBB_sig)[which(names(res_LGBB_sig) == "row")] <- "Gene_ID"
 res_LGBB_sig<-merge(res_LGBB_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/res_LGBB_sig.csv")
+write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae_output/res_LGBB_sig.csv")
 sum(res_LGBB_sig$padj < 0.05, na.rm=TRUE)
 
 res_BB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "hive_control"))
-write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/res_BB_all.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae_output/res_BB_all.csv")
 res_BB_sig<- subset(res_BB_sig, padj < 0.05)
 colnames(res_BB_sig)[which(names(res_BB_sig) == "row")] <- "Gene_ID"
 res_BB_sig<-merge(res_BB_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/res_BB_sig.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae_output/res_BB_sig.csv")
 sum(res_BB_sig$padj < 0.05, na.rm=TRUE)
 ```
 
@@ -318,7 +318,7 @@ All lists with significant expressed genes are split into up- and down-regulated
 
 ```{r GO_AG}
 #up
-AG_up <- read.csv("RNA/Larvae-output/res_AG_sig_up.csv")
+AG_up <- read.csv("RNA/Larvae_output/res_AG_sig_up.csv")
 
 DsxModuleGo <- hyperGTest(GSEAGOHyperGParams(name = "enriched in AG treatment",
     geneSetCollection=gsc,geneIds = intersect(AG_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -328,10 +328,10 @@ summary(DsxModuleGo) %>% kable("html", digits = 3) %>% kable_styling() %>%  kabl
 GO_enrich.AG <- as.data.frame(summary(DsxModuleGo))
 GO_enrich.AG %>% 
 arrange(Pvalue) #%>% 
-#write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_AG_up.csv")
+#write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_AG_up.csv")
 
 #down
-AG_down <- read.csv("RNA/Larvae-output/res_AG_sig_down.csv")
+AG_down <- read.csv("RNA/Larvae_output/res_AG_sig_down.csv")
 
 DsxModuleGo2 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in AG treatment",
     geneSetCollection=gsc,geneIds = intersect(AG_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -339,12 +339,12 @@ summary(DsxModuleGo2) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.AG2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.AG2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_AG_down.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_AG_down.csv")
 ```
 
 ```{r GO_BB}
 #up
-BB_up <- read.csv("RNA/Larvae-output/res_BB_sig_up.csv")
+BB_up <- read.csv("RNA/Larvae_output/res_BB_sig_up.csv")
 
 DsxModuleGo3 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -354,10 +354,10 @@ summary(DsxModuleGo3) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB <- as.data.frame(summary(DsxModuleGo3))
 GO_enrich.BB %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_BB_up.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_BB_up.csv")
 
 #down
-BB_down <- read.csv("RNA/Larvae-output/res_BB_sig_down.csv")
+BB_down <- read.csv("RNA/Larvae_output/res_BB_sig_down.csv")
 
 DsxModuleGo2 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -365,12 +365,12 @@ summary(DsxModuleGo2) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.BB2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_BB_down.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_BB_down.csv")
 ```
 
 ```{r GO_C}
 #up
-C_up <- read.csv("RNA/Larvae-output/res_C_sig_up.csv")
+C_up <- read.csv("RNA/Larvae_output/res_C_sig_up.csv")
 
 DsxModuleGo4 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in C treatment",
     geneSetCollection=gsc,geneIds = intersect(C_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -380,10 +380,10 @@ summary(DsxModuleGo4) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.C <- as.data.frame(summary(DsxModuleGo4))
 GO_enrich.C %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_C_up.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_C_up.csv")
 
 #down
-C_down <- read.csv("RNA/Larvae-output/res_C_sig_down.csv")
+C_down <- read.csv("RNA/Larvae_output/res_C_sig_down.csv")
 
 DsxModuleGo5 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in C treatment",
     geneSetCollection=gsc,geneIds = intersect(C_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -391,13 +391,13 @@ summary(DsxModuleGo5) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.C2 <- as.data.frame(summary(DsxModuleGo5))
 GO_enrich.C2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_C_down.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_C_down.csv")
 ```
 
 
 ```{r GO_LG}
 #up
-LG_up <- read.csv("RNA/Larvae-output/res_LG_sig_up.csv")
+LG_up <- read.csv("RNA/Larvae_output/res_LG_sig_up.csv")
 
 DsxModuleGo6 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LG treatment",
     geneSetCollection=gsc,geneIds = intersect(LG_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -407,11 +407,11 @@ summary(DsxModuleGo6) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LG <- as.data.frame(summary(DsxModuleGo6))
 GO_enrich.LG %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LG_up.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_LG_up.csv")
 
 
 #down
-LG_down <- read.csv("RNA/Larvae-output/res_LG_sig_down.csv")
+LG_down <- read.csv("RNA/Larvae_output/res_LG_sig_down.csv")
 
 DsxModuleGo7 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LG treatment",
     geneSetCollection=gsc,geneIds = intersect(LG_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -419,12 +419,12 @@ summary(DsxModuleGo7) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LG2 <- as.data.frame(summary(DsxModuleGo7))
 GO_enrich.LG2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LG_down.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_LG_down.csv")
 ```
 
 ```{r GO_LGBB}
 #up
-LGBB_up <- read.csv("RNA/Larvae-output/res_LGBB_sig_up.csv")
+LGBB_up <- read.csv("RNA/Larvae_output/res_LGBB_sig_up.csv")
 
 DsxModuleGo8 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LGBB treatment",
     geneSetCollection=gsc,geneIds = intersect(LGBB_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -434,10 +434,10 @@ summary(DsxModuleGo8) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LGBB <- as.data.frame(summary(DsxModuleGo8))
 GO_enrich.LGBB %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LGBB_up.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_LGBB_up.csv")
 
 #down
-LGBB_down <- read.csv("RNA/Larvae-output/res_LGBB_sig_down.csv")
+LGBB_down <- read.csv("RNA/Larvae_output/res_LGBB_sig_down.csv")
 
 DsxModuleGo9 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LGBB treatment",
     geneSetCollection=gsc,geneIds = intersect(LGBB_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -445,7 +445,7 @@ summary(DsxModuleGo9) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LGBB2 <- as.data.frame(summary(DsxModuleGo9))
 GO_enrich.LGBB2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LGBB_down.csv")
+write.csv(file = "RNA/Larvae_output/Go/GO_term_enrichment_LGBB_down.csv")
 ```
 
 
@@ -502,50 +502,50 @@ LGBB<-ggmaplot(resLFC_larva_LGBB, fdr = 0.05, fc = 1, size = 1.2,palette = c("#B
 library(patchwork)
 List <- list(AG,BB,Hive,LG,LGBB)
 Plot <- wrap_plots(List)
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/larva_MA_against_lab_control.png", height = 10, width = 15)
+ggsave("RNA/Larvae_output/compare_against_C_lab_treatment/larva_MA_against_lab_control.png", height = 10, width = 15)
 ```
 
 ```{r extract sig genes2}
 functions <- read_csv("RNA/data_files/annotationsBiomart.csv", col_types = cols()) %>% dplyr::select(Gene_ID=ensembl_gene_id,description=description)
 
 res_LG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "lab_food_nothing"))
-write.csv(as.data.frame(res_LG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LG_all.csv")
+write.csv(as.data.frame(res_LG_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_LG_all.csv")
 res_LG_sig<- subset(res_LG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_LG_sig)[which(names(res_LG_sig) == "row")] <- "Gene_ID"
 res_LG_sig<-merge(res_LG_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_LG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LG_sig.csv")
+write.csv(as.data.frame(res_LG_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_LG_sig.csv")
 
 #How many adjusted p-values were less than 0.05?
 sum(res_LG_sig$padj < 0.05, na.rm=TRUE)
 
 res_AG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "lab_food_nothing"))
-write.csv(as.data.frame(res_AG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_all.csv")
+write.csv(as.data.frame(res_AG_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_AG_all.csv")
 res_AG_sig<- subset(res_AG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_AG_sig)[which(names(res_AG_sig) == "row")] <- "Gene_ID"
 res_AG_sig<-merge(res_AG_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_AG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_sig.csv")
+write.csv(as.data.frame(res_AG_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_AG_sig.csv")
 sum(res_AG_sig$padj < 0.05, na.rm=TRUE)
 
 res_LGBB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "lab_food_nothing"))
-write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_all.csv")
+write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_LGBB_all.csv")
 res_LGBB_sig<- subset(res_LGBB_sig, padj < 0.05)
 colnames(res_LGBB_sig)[which(names(res_LGBB_sig) == "row")] <- "Gene_ID"
 res_LGBB_sig<-merge(res_LGBB_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_sig.csv")
+write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_LGBB_sig.csv")
 sum(res_LGBB_sig$padj < 0.05, na.rm=TRUE)
 
 res_BB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "lab_food_nothing"))
-write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_BB_all.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_BB_all.csv")
 res_BB_sig<- subset(res_BB_sig, padj < 0.05)
 colnames(res_BB_sig)[which(names(res_BB_sig) == "row")] <- "Gene_ID"
 res_BB_sig<-merge(res_BB_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_BB_sig.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae_output/compare_against_C_lab_treatment/res_BB_sig.csv")
 sum(res_BB_sig$padj < 0.05, na.rm=TRUE)
 ```
 
 ```{r GO_AG2}
 #up
-AG_up <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_sig_up.csv")
+AG_up <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_AG_sig_up.csv")
 
 DsxModuleGo <- hyperGTest(GSEAGOHyperGParams(name = "enriched in AG treatment",
     geneSetCollection=gsc,geneIds = intersect(AG_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -555,11 +555,11 @@ summary(DsxModuleGo) %>% kable("html", digits = 3) %>% kable_styling() %>%  kabl
 GO_enrich.AG <- as.data.frame(summary(DsxModuleGo))
 GO_enrich.AG %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_up.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_up.csv")
 
 
 #down
-AG_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_sig_down.csv")
+AG_down <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_AG_sig_down.csv")
 
 DsxModuleGo2 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in AG treatment",
     geneSetCollection=gsc,geneIds = intersect(AG_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -567,12 +567,12 @@ summary(DsxModuleGo2) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.AG2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.AG2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_down.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_down.csv")
 ```
 
 ```{r GO_BB2}
 #up
-BB_up <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_BB_sig_up.csv")
+BB_up <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_BB_sig_up.csv")
 
 DsxModuleGo3 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -582,10 +582,10 @@ summary(DsxModuleGo3) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB <- as.data.frame(summary(DsxModuleGo3))
 GO_enrich.BB %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_up.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_up.csv")
 
 #down
-BB_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_BB_sig_down.csv")
+BB_down <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_BB_sig_down.csv")
 
 DsxModuleGo2 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -593,12 +593,12 @@ summary(DsxModuleGo2) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.BB2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_down.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_down.csv")
 ```
 
 ```{r GO_LG2}
 #up
-LG_up <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_LG_sig_up.csv")
+LG_up <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_LG_sig_up.csv")
 
 DsxModuleGo6 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LG treatment",
     geneSetCollection=gsc,geneIds = intersect(LG_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -608,10 +608,10 @@ summary(DsxModuleGo6) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LG <- as.data.frame(summary(DsxModuleGo6))
 GO_enrich.LG %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_up.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_up.csv")
 
 #down
-LG_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_LG_sig_down.csv")
+LG_down <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_LG_sig_down.csv")
 
 DsxModuleGo7 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LG treatment",
     geneSetCollection=gsc,geneIds = intersect(LG_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -619,12 +619,12 @@ summary(DsxModuleGo7) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LG2 <- as.data.frame(summary(DsxModuleGo7))
 GO_enrich.LG2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_down.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_down.csv")
 ```
 
 ```{r GO_LGBB2}
 #up
-LGBB_up <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_sig_up.csv")
+LGBB_up <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_LGBB_sig_up.csv")
 
 DsxModuleGo8 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LGBB treatment",
     geneSetCollection=gsc,geneIds = intersect(LGBB_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -634,10 +634,10 @@ summary(DsxModuleGo8) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LGBB <- as.data.frame(summary(DsxModuleGo8))
 GO_enrich.LGBB %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_up.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_up.csv")
 
 #down
-LGBB_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_sig_down.csv")
+LGBB_down <- read.csv("RNA/Larvae_output/compare_against_C_lab_treatment/res_LGBB_sig_down.csv")
 
 DsxModuleGo9 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LGBB treatment",
     geneSetCollection=gsc,geneIds = intersect(LGBB_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -645,7 +645,7 @@ summary(DsxModuleGo9) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LGBB2 <- as.data.frame(summary(DsxModuleGo9))
 GO_enrich.LGBB2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_down.csv")
+write.csv(file = "RNA/Larvae_output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_down.csv")
 ```
 
 
@@ -691,7 +691,7 @@ ggplot(pcaData1, aes(PC1, PC2, color=condition)) +
 geom_point(size=4)+xlab(paste0("PC1: ",percentVar[1],"% variance")) +
 ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
 coord_fixed()+theme_bw()+theme(legend.title = element_blank())+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))+ theme(legend.text = element_text(face="bold", size=15))+theme(axis.text = element_text(size=15))+theme(axis.title = element_text(size=16))#+ylim(-50,50)+xlim(-75,75)
-ggsave("RNA/Adult-output/pca_adults.png", height = 4, width = 4)
+ggsave("RNA/Adult_output/pca_adults.png", height = 4, width = 4)
 ```
 
 ### MA plots treatments vs hive control
@@ -725,7 +725,7 @@ LGBB<-ggmaplot(resLFC_adults_LGBB, fdr = 0.05, fc = 1, size = 1.2,palette = c("#
 library(patchwork)
 List <- list(AG,BB,C,LG,LGBB)
 Plot <- wrap_plots(List,nrow=1)
-ggsave("RNA/Adult-output/adults_MA_all.png", height = 5, width = 15)
+ggsave("RNA/Adult_output/adults_MA_all.png", height = 5, width = 15)
 ```
 
 ### extract significant differently expressed genes
@@ -735,45 +735,45 @@ ggsave("RNA/Adult-output/adults_MA_all.png", height = 5, width = 15)
 functions <- read_csv("RNA/data_files/annotationsBiomart.csv", col_types = cols()) %>% dplyr::select(Gene_ID=ensembl_gene_id,description=description)
 
 res_LG_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "hive_control"))
-write.csv(as.data.frame(res_LG_sig), file="RNA/Adult-output/res_LG_all.csv")
+write.csv(as.data.frame(res_LG_sig), file="RNA/Adult_output/res_LG_all.csv")
 res_LG_sig<- subset(res_LG_sig, padj < 0.05)
 colnames(res_LG_sig)[which(names(res_LG_sig) == "row")] <- "Gene_ID"
 res_LG_sig<-merge(res_LG_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_LG_sig), file="RNA/Adult-output/res_LG_sig.csv")
+write.csv(as.data.frame(res_LG_sig), file="RNA/Adult_output/res_LG_sig.csv")
 
 #How many adjusted p-values were less than 0.05?
 sum(res_LG_sig$padj < 0.05, na.rm=TRUE)
 
 res_AG_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "hive_control"))
-write.csv(as.data.frame(res_AG_sig), file="RNA/Adult-output/res_AG_all.csv")
+write.csv(as.data.frame(res_AG_sig), file="RNA/Adult_output/res_AG_all.csv")
 res_AG_sig<- subset(res_AG_sig, padj < 0.05)
 colnames(res_AG_sig)[which(names(res_AG_sig) == "row")] <- "Gene_ID"
 res_AG_sig<-merge(res_AG_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_AG_sig), file="RNA/Adult-output/res_AG_sig.csv")
+write.csv(as.data.frame(res_AG_sig), file="RNA/Adult_output/res_AG_sig.csv")
 sum(res_AG_sig$padj < 0.05, na.rm=TRUE)
 
 res_C_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "lab_food_nothing", "hive_control"))
-#write.csv(as.data.frame(res_C_sig), file="RNA/Adult-output/res_C_all.csv")
+#write.csv(as.data.frame(res_C_sig), file="RNA/Adult_output/res_C_all.csv")
 res_C_sig<- subset(res_C_sig, padj < 0.05)
 colnames(res_C_sig)[which(names(res_C_sig) == "row")] <- "Gene_ID"
 res_C_sig<-merge(res_C_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_C_sig), file="RNA/Adult-output/res_C_sig.csv")
+write.csv(as.data.frame(res_C_sig), file="RNA/Adult_output/res_C_sig.csv")
 sum(res_C_sig$padj < 0.05, na.rm=TRUE)
 
 res_LGBB_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "hive_control"))
-write.csv(as.data.frame(res_LGBB_sig), file="RNA/Adult-output/res_LGBB_all.csv")
+write.csv(as.data.frame(res_LGBB_sig), file="RNA/Adult_output/res_LGBB_all.csv")
 res_LGBB_sig<- subset(res_LGBB_sig, padj < 0.05)
 colnames(res_LGBB_sig)[which(names(res_LGBB_sig) == "row")] <- "Gene_ID"
 res_LGBB_sig<-merge(res_LGBB_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_LGBB_sig), file="RNA/Adult-output/res_LGBB_sig.csv")
+write.csv(as.data.frame(res_LGBB_sig), file="RNA/Adult_output/res_LGBB_sig.csv")
 sum(res_LGBB_sig$padj < 0.05, na.rm=TRUE)
 
 res_BB_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "hive_control"))
-write.csv(as.data.frame(res_BB_sig), file="RNA/Adult-output/res_BB_all.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Adult_output/res_BB_all.csv")
 res_BB_sig<- subset(res_BB_sig, padj < 0.05)
 colnames(res_BB_sig)[which(names(res_BB_sig) == "row")] <- "Gene_ID"
 res_BB_sig<-merge(res_BB_sig, functions, by="Gene_ID", type="left", match="first")
-write.csv(as.data.frame(res_BB_sig), file="RNA/Adult-output/res_BB_sig.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Adult_output/res_BB_sig.csv")
 sum(res_BB_sig$padj < 0.05, na.rm=TRUE)
 ```
 
@@ -795,7 +795,7 @@ gsc <- GeneSetCollection(goAllFrame, setType = GOCollection())
 
 ```{r GO_AG3}
 #up
-AG_up <- read.csv("RNA/Adult-output/res_AG_sig_up.csv")
+AG_up <- read.csv("RNA/Adult_output/res_AG_sig_up.csv")
 
 DsxModuleGo <- hyperGTest(GSEAGOHyperGParams(name = "enriched in AG treatment",
     geneSetCollection=gsc,geneIds = intersect(AG_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -805,14 +805,14 @@ summary(DsxModuleGo) %>% kable("html", digits = 3) %>% kable_styling() %>%  kabl
 GO_enrich.AG <- as.data.frame(summary(DsxModuleGo))
 GO_enrich.AG %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_AG_up.csv")
+write.csv(file = "RNA/Adult_output/Go/GO_term_enrichment_AG_up.csv")
 
 ## the one down-regulated gene not working for GOterm
 ```
 
 ```{r GO_BB}
 #up
-BB_up <- read.csv("RNA/Adult-output/res_BB_sig_up.csv")
+BB_up <- read.csv("RNA/Adult_output/res_BB_sig_up.csv")
 
 DsxModuleGo3 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -822,10 +822,10 @@ summary(DsxModuleGo3) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB <- as.data.frame(summary(DsxModuleGo3))
 GO_enrich.BB %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_BB_up.csv")
+write.csv(file = "RNA/Adult_output/Go/GO_term_enrichment_BB_up.csv")
 
 #down
-BB_down <- read.csv("RNA/Adult-output/res_BB_sig_down.csv")
+BB_down <- read.csv("RNA/Adult_output/res_BB_sig_down.csv")
 
 DsxModuleGo2 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -833,7 +833,7 @@ summary(DsxModuleGo2) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.BB2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_BB_down.csv")
+write.csv(file = "RNA/Adult_output/Go/GO_term_enrichment_BB_down.csv")
 ```
 
 ```{r GO_C}
@@ -841,7 +841,7 @@ write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_BB_down.csv")
 #not working for GOterm
 
 #down
-C_down <- read.csv("RNA/Adult-output/res_C_sig_down.csv")
+C_down <- read.csv("RNA/Adult_output/res_C_sig_down.csv")
 
 DsxModuleGo5 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in C treatment",
     geneSetCollection=gsc,geneIds = intersect(C_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -849,12 +849,12 @@ summary(DsxModuleGo5) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.C2 <- as.data.frame(summary(DsxModuleGo5))
 GO_enrich.C2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_C_down.csv")
+write.csv(file = "RNA/Adult_output/Go/GO_term_enrichment_C_down.csv")
 ```
 
 ```{r GO_LG}
 #up
-LG_up <- read.csv("RNA/Adult-output/res_LG_sig_up.csv")
+LG_up <- read.csv("RNA/Adult_output/res_LG_sig_up.csv")
 
 DsxModuleGo6 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in LG treatment",
     geneSetCollection=gsc,geneIds = intersect(LG_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -864,7 +864,7 @@ summary(DsxModuleGo6) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.LG <- as.data.frame(summary(DsxModuleGo6))
 GO_enrich.LG %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_LG_up.csv")
+write.csv(file = "RNA/Adult_output/Go/GO_term_enrichment_LG_up.csv")
 
 #down
 #not doable with GO term analysis

@@ -1,0 +1,13 @@
+{
+	"n_targets": 27887,
+	"n_bootstraps": 100,
+	"n_processed": 13306024,
+	"n_pseudoaligned": 9293357,
+	"n_unique": 5261904,
+	"p_pseudoaligned": 69.8,
+	"p_unique": 39.5,
+	"kallisto_version": "0.44.0",
+	"index_version": 10,
+	"start_time": "Tue Jan  7 16:29:49 2020",
+	"call": "kallisto quant -b 100 -t 1 -o data/rnaseq/kallisto/adult_C3-2 -i ref/Amel_HAv3.1 data/rnaseq/trimmed_reads/adult_C3-2.pair1.truncated.gz data/rnaseq/trimmed_reads/adult_C3-2.pair2.truncated.gz"
+}

@@ -1,0 +1,5 @@
+,Gene_ID,baseMean,log2FoldChange,lfcSE,stat,pvalue,padj,description
+2,LOC406146,191.6753259,1.297938416,0.298979564,4.341227876,1.42E-05,0.042290529,hyaluronoglucosaminidase
+5,LOC724389,234.2170574,2.403722076,0.503452215,4.774479097,1.80E-06,0.010755427,"calcium/calmodulin-dependent 3',5'-cyclic nucleotide phosphodiesterase 1C, transcript variant X2"
+3,LOC409701,12.68426268,2.725355364,0.638600473,4.267700193,1.97E-05,0.047158694,"zwei Ig domain protein zig-8, transcript variant X1"
+1,LOC107965750,54.93272609,4.971437465,0.852887892,5.828945997,5.58E-09,6.66E-05,uncharacterized LOC107965750

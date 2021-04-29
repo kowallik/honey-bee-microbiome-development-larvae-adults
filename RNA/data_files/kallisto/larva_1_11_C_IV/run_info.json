@@ -1,0 +1,13 @@
+{
+	"n_targets": 27887,
+	"n_bootstraps": 100,
+	"n_processed": 11300118,
+	"n_pseudoaligned": 5991374,
+	"n_unique": 4079472,
+	"p_pseudoaligned": 53.0,
+	"p_unique": 36.1,
+	"kallisto_version": "0.44.0",
+	"index_version": 10,
+	"start_time": "Tue Jan  7 16:29:49 2020",
+	"call": "kallisto quant -b 100 -t 1 -o data/rnaseq/kallisto/larva_1_11_C_IV -i ref/Amel_HAv3.1 data/rnaseq/trimmed_reads/larva_1_11_C_IV.pair1.truncated.gz data/rnaseq/trimmed_reads/larva_1_11_C_IV.pair2.truncated.gz"
+}
