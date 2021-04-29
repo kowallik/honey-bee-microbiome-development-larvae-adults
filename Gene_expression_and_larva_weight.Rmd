@@ -205,7 +205,6 @@ LG<-ggmaplot(resLFC_larva_LG, fdr = 0.05, fc = 1, size = 1.2,palette = c("#B31B2
   
 LGBB<-ggmaplot(resLFC_larva_LGBB, fdr = 0.05, fc = 1, size = 1.2,palette = c("#B31B21", "#1465AC", "darkgray"),genenames = as.vector(resLFC_larva_LGBB$name),top = 0)+coord_cartesian(xlim = c(0, 18))+ scale_y_continuous(limits=c(-8, 8))+ theme(axis.text.x = element_text(size=16),axis.text.y = element_text(size=15),axis.title.x = element_text(size=17),axis.title.y = element_text(size=17),axis.line = element_line(size = 1, colour="gray20"),axis.ticks = element_line(size = 1, colour="gray20"))+guides(color = guide_legend(override.aes = list(size = c(3,3,3))))+theme(legend.position = c(0.70, 0.12),legend.text=element_text(size=14,face = "bold"),legend.background = element_rect(fill="transparent"))+theme(axis.line.y = element_line(color = "white"))+ theme(axis.title.y = element_blank(),axis.text.y = element_blank(),axis.ticks.y = element_blank(),axis.title.x = element_blank(),axis.text.x = element_blank())+theme(plot.title = element_text(size=18, colour="gray30", face="bold",hjust=0.06, vjust=-5))+labs(title="Larva gut & bee bread")
 
-
 library(patchwork)
 List <- list(AG,BB,C,LG,LGBB)
 Plot <- wrap_plots(List,nrow=1)
@@ -236,46 +235,46 @@ ggsave("RNA/Larvae-output/larva_MA_all.png", height = 5, width = 15)
 
 functions <- read_csv("RNA/data_files/annotationsBiomart.csv", col_types = cols()) %>% dplyr::select(Gene_ID=ensembl_gene_id,description=description)
 
-res_LG_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "hive_control"))
-#write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae-output/res_LG_all.csv")
+res_LG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "hive_control"))
+write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae-output/res_LG_all.csv")
 res_LG_sig<- subset(res_LG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_LG_sig)[which(names(res_LG_sig) == "row")] <- "Gene_ID"
 res_LG_sig<-merge(res_LG_sig, functions, by="Gene_ID", type="left", match="first")
-#write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae-output/res_LG_sig.csv")
+write.csv(as.data.frame(res_LG_sig),file="RNA/Larvae-output/res_LG_sig.csv")
 
 #How many adjusted p-values were less than 0.05?
 sum(res_LG_sig$padj < 0.05, na.rm=TRUE)
 
-res_AG_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "hive_control"))
-#write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae-output/res_AG_all.csv")
+res_AG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "hive_control"))
+write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae-output/res_AG_all.csv")
 res_AG_sig<- subset(res_AG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_AG_sig)[which(names(res_AG_sig) == "row")] <- "Gene_ID"
 res_AG_sig<-merge(res_AG_sig, functions, by="Gene_ID", type="left", match="first")
-#write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae-output/res_AG_sig.csv")
+write.csv(as.data.frame(res_AG_sig),file="RNA/Larvae-output/res_AG_sig.csv")
 sum(res_AG_sig$padj < 0.05, na.rm=TRUE)
 
-res_C_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "lab_food_nothing", "hive_control"))
-#write.csv(as.data.frame(res_C_sig), file="RNA/Larvae-output/res_C_all.csv")
+res_C_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "lab_food_nothing", "hive_control"))
+write.csv(as.data.frame(res_C_sig), file="RNA/Larvae-output/res_C_all.csv")
 res_C_sig<- subset(res_C_sig, padj < 0.05)
 colnames(res_C_sig)[which(names(res_C_sig) == "row")] <- "Gene_ID"
 res_C_sig<-merge(res_C_sig, functions, by="Gene_ID", type="left", match="first")
-#write.csv(as.data.frame(res_C_sig), file="RNA/Larvae-output/res_C_sig.csv")
+write.csv(as.data.frame(res_C_sig), file="RNA/Larvae-output/res_C_sig.csv")
 sum(res_C_sig$padj < 0.05, na.rm=TRUE)
 
-res_LGBB_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "hive_control"))
-#write.csv(as.data.frame(res_LGBB_sig),file="RNA/Larvae-output/res_LGBB_all.csv")
+res_LGBB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "hive_control"))
+write.csv(as.data.frame(res_LGBB_sig),file="RNA/Larvae-output/res_LGBB_all.csv")
 res_LGBB_sig<- subset(res_LGBB_sig, padj < 0.05)
 colnames(res_LGBB_sig)[which(names(res_LGBB_sig) == "row")] <- "Gene_ID"
 res_LGBB_sig<-merge(res_LGBB_sig, functions, by="Gene_ID", type="left", match="first")
-#write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/res_LGBB_sig.csv")
+write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/res_LGBB_sig.csv")
 sum(res_LGBB_sig$padj < 0.05, na.rm=TRUE)
 
-res_BB_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "hive_control"))
-#write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/res_BB_all.csv")
+res_BB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "hive_control"))
+write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/res_BB_all.csv")
 res_BB_sig<- subset(res_BB_sig, padj < 0.05)
 colnames(res_BB_sig)[which(names(res_BB_sig) == "row")] <- "Gene_ID"
 res_BB_sig<-merge(res_BB_sig, functions, by="Gene_ID", type="left", match="first")
-#write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/res_BB_sig.csv")
+write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/res_BB_sig.csv")
 sum(res_BB_sig$padj < 0.05, na.rm=TRUE)
 ```
 
@@ -331,20 +330,6 @@ GO_enrich.AG %>%
 arrange(Pvalue) #%>% 
 #write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_AG_up.csv")
 
-### make list
-hub_genesGO <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_AG_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-
-#plot it
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("AG up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/AG_up.png", height = 8, width = 9)
-
 #down
 AG_down <- read.csv("RNA/Larvae-output/res_AG_sig_down.csv")
 
@@ -355,24 +340,11 @@ GO_enrich.AG2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.AG2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_AG_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_AG_down.csv")
-# keep only highly significant terms
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("AG down compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/AG_down.png", height = 8, width = 9)
 ```
 
-
 ```{r GO_BB}
-
 #up
-BB_up <- read.csv("Larvae-output/res_BB_sig_up.csv")
+BB_up <- read.csv("RNA/Larvae-output/res_BB_sig_up.csv")
 
 DsxModuleGo3 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_up$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -382,21 +354,10 @@ summary(DsxModuleGo3) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB <- as.data.frame(summary(DsxModuleGo3))
 GO_enrich.BB %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "Larvae-output/Go/GO_term_enrichment_BB_up.csv")
-
-hub_genesGO <- read.csv("Larvae-output/Go/GO_term_enrichment_BB_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("BB up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("Larvae-output/Go/BB_up.png", height = 8, width = 9)
+write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_BB_up.csv")
 
 #down
-BB_down <- read.csv("Larvae-output/res_BB_sig_down.csv")
+BB_down <- read.csv("RNA/Larvae-output/res_BB_sig_down.csv")
 
 DsxModuleGo2 <- hyperGTest(GSEAGOHyperGParams(name = "enriched in BB treatment",
     geneSetCollection=gsc,geneIds = intersect(BB_down$Gene_ID,universe), universeGeneIds=universe, ontology = "BP",pvalueCutoff = 0.05,conditional = FALSE,testDirection = "over"))
@@ -404,20 +365,8 @@ summary(DsxModuleGo2) %>% kable("html", digits = 3) %>% kable_styling() %>%  kab
 GO_enrich.BB2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.BB2 %>% 
 arrange(Pvalue) %>% 
-write.csv(file = "Larvae-output/Go/GO_term_enrichment_BB_down.csv")
-hub_genesGO2 <- read.csv("Larvae-output/Go/GO_term_enrichment_BB_down.csv")
-# keep only highly significant terms
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("BB down compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("Larvae-output/Go/BB_down.png", height = 8, width = 9)
+write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_BB_down.csv")
 ```
-
 
 ```{r GO_C}
 #up
@@ -433,17 +382,6 @@ GO_enrich.C %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_C_up.csv")
 
-hub_genesGO <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_C_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("C up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/C_up.png", height = 8, width = 9)
-
 #down
 C_down <- read.csv("RNA/Larvae-output/res_C_sig_down.csv")
 
@@ -454,16 +392,6 @@ GO_enrich.C2 <- as.data.frame(summary(DsxModuleGo5))
 GO_enrich.C2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_C_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_C_down.csv")
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("C down compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/C_down.png", height = 8, width = 9)
 ```
 
 
@@ -481,16 +409,6 @@ GO_enrich.LG %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LG_up.csv")
 
-hub_genesGO <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_LG_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LG up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/LG_up.png", height = 8, width = 9)
 
 #down
 LG_down <- read.csv("RNA/Larvae-output/res_LG_sig_down.csv")
@@ -502,16 +420,6 @@ GO_enrich.LG2 <- as.data.frame(summary(DsxModuleGo7))
 GO_enrich.LG2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LG_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_LG_down.csv")
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("RNA/LG down compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/LG_down.png", height = 8, width = 9)
 ```
 
 ```{r GO_LGBB}
@@ -528,17 +436,6 @@ GO_enrich.LGBB %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LGBB_up.csv")
 
-hub_genesGO3 <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_LGBB_up.csv")
-# keep only highly significant terms
-hub_genesGO3 <- hub_genesGO3 %>%
-filter(Pvalue < 0.01) 
-g3 <- hub_genesGO3 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g3, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("RNA/LGBB up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/LGBB_up.png", height = 8, width = 9)
-
 #down
 LGBB_down <- read.csv("RNA/Larvae-output/res_LGBB_sig_down.csv")
 
@@ -549,17 +446,6 @@ GO_enrich.LGBB2 <- as.data.frame(summary(DsxModuleGo9))
 GO_enrich.LGBB2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/Go/GO_term_enrichment_LGBB_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/Go/GO_term_enrichment_LGBB_down.csv")
-# keep only highly significant terms
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LGBB down compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/Go/LGBB_down.png", height = 8, width = 9)
 ```
 
 
@@ -622,7 +508,7 @@ ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/larva_MA_against_lab_c
 ```{r extract sig genes2}
 functions <- read_csv("RNA/data_files/annotationsBiomart.csv", col_types = cols()) %>% dplyr::select(Gene_ID=ensembl_gene_id,description=description)
 
-res_LG_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "lab_food_nothing"))
+res_LG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "lab_food_nothing"))
 write.csv(as.data.frame(res_LG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LG_all.csv")
 res_LG_sig<- subset(res_LG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_LG_sig)[which(names(res_LG_sig) == "row")] <- "Gene_ID"
@@ -632,7 +518,7 @@ write.csv(as.data.frame(res_LG_sig), file="RNA/Larvae-output/compare_against_C_l
 #How many adjusted p-values were less than 0.05?
 sum(res_LG_sig$padj < 0.05, na.rm=TRUE)
 
-res_AG_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "lab_food_nothing"))
+res_AG_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "lab_food_nothing"))
 write.csv(as.data.frame(res_AG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_all.csv")
 res_AG_sig<- subset(res_AG_sig, padj < 0.05,pAdjustMethod = "fdr")
 colnames(res_AG_sig)[which(names(res_AG_sig) == "row")] <- "Gene_ID"
@@ -640,7 +526,7 @@ res_AG_sig<-merge(res_AG_sig, functions, by="Gene_ID", type="left", match="first
 write.csv(as.data.frame(res_AG_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_sig.csv")
 sum(res_AG_sig$padj < 0.05, na.rm=TRUE)
 
-res_LGBB_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "lab_food_nothing"))
+res_LGBB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "lab_food_nothing"))
 write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_all.csv")
 res_LGBB_sig<- subset(res_LGBB_sig, padj < 0.05)
 colnames(res_LGBB_sig)[which(names(res_LGBB_sig) == "row")] <- "Gene_ID"
@@ -648,7 +534,7 @@ res_LGBB_sig<-merge(res_LGBB_sig, functions, by="Gene_ID", type="left", match="f
 write.csv(as.data.frame(res_LGBB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_sig.csv")
 sum(res_LGBB_sig$padj < 0.05, na.rm=TRUE)
 
-res_BB_sig <- results(dds_larva, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "lab_food_nothing"))
+res_BB_sig <- DESeq2::results(dds_larva, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "lab_food_nothing"))
 write.csv(as.data.frame(res_BB_sig), file="RNA/Larvae-output/compare_against_C_lab_treatment/res_BB_all.csv")
 res_BB_sig<- subset(res_BB_sig, padj < 0.05)
 colnames(res_BB_sig)[which(names(res_BB_sig) == "row")] <- "Gene_ID"
@@ -671,19 +557,6 @@ GO_enrich.AG %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_up.csv")
 
-### make list
-hub_genesGO <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-
-#plot it
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("AG up compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/AG_up.png", height = 8, width = 9)
 
 #down
 AG_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_AG_sig_down.csv")
@@ -695,20 +568,7 @@ GO_enrich.AG2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.AG2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_AG_down.csv")
-# keep only highly significant terms
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-#or plot it based on the count of each term and the pvalue:
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("AG down compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/AG_down.png", height = 8, width = 9)
 ```
-
 
 ```{r GO_BB2}
 #up
@@ -724,17 +584,6 @@ GO_enrich.BB %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_up.csv")
 
-hub_genesGO <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("BB up compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/BB_up.png", height = 8, width = 9)
-
 #down
 BB_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_BB_sig_down.csv")
 
@@ -745,16 +594,6 @@ GO_enrich.BB2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.BB2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_BB_down.csv")
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("BB down compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/BB_down.png", height = 8, width = 9)
 ```
 
 ```{r GO_LG2}
@@ -771,16 +610,6 @@ GO_enrich.LG %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_up.csv")
 
-hub_genesGO <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_up.csv")
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LG up compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/LG_up.png", height = 8, width = 9)
-
 #down
 LG_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_LG_sig_down.csv")
 
@@ -791,16 +620,6 @@ GO_enrich.LG2 <- as.data.frame(summary(DsxModuleGo7))
 GO_enrich.LG2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LG_down.csv")
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.01) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LG down compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/LG_down.png", height = 8, width = 9)
 ```
 
 ```{r GO_LGBB2}
@@ -817,16 +636,6 @@ GO_enrich.LGBB %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_up.csv")
 
-hub_genesGO <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_up.csv")
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.01) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LGBB up compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/LGBB_up.png", height = 8, width = 9)
-
 #down
 LGBB_down <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/res_LGBB_sig_down.csv")
 
@@ -837,16 +646,6 @@ GO_enrich.LGBB2 <- as.data.frame(summary(DsxModuleGo9))
 GO_enrich.LGBB2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_down.csv")
-hub_genesGO2 <- read.csv("RNA/Larvae-output/compare_against_C_lab_treatment/Go/GO_term_enrichment_LGBB_down.csv")
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.02) #<- set to 0.02 as below 0.01 nothing available
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LGBB down compared to C")+theme(axis.title.y = element_blank())
-ggsave("RNA/Larvae-output/compare_against_C_lab_treatment/Go/LGBB_down.png", height = 8, width = 9)
 ```
 
 
@@ -935,7 +734,7 @@ ggsave("RNA/Adult-output/adults_MA_all.png", height = 5, width = 15)
 
 functions <- read_csv("RNA/data_files/annotationsBiomart.csv", col_types = cols()) %>% dplyr::select(Gene_ID=ensembl_gene_id,description=description)
 
-res_LG_sig <- results(dds_adults, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "hive_control"))
+res_LG_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "larva_gut_transfer", "hive_control"))
 write.csv(as.data.frame(res_LG_sig), file="RNA/Adult-output/res_LG_all.csv")
 res_LG_sig<- subset(res_LG_sig, padj < 0.05)
 colnames(res_LG_sig)[which(names(res_LG_sig) == "row")] <- "Gene_ID"
@@ -945,7 +744,7 @@ write.csv(as.data.frame(res_LG_sig), file="RNA/Adult-output/res_LG_sig.csv")
 #How many adjusted p-values were less than 0.05?
 sum(res_LG_sig$padj < 0.05, na.rm=TRUE)
 
-res_AG_sig <- results(dds_adults, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "hive_control"))
+res_AG_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "adult_gut_transfer", "hive_control"))
 write.csv(as.data.frame(res_AG_sig), file="RNA/Adult-output/res_AG_all.csv")
 res_AG_sig<- subset(res_AG_sig, padj < 0.05)
 colnames(res_AG_sig)[which(names(res_AG_sig) == "row")] <- "Gene_ID"
@@ -953,15 +752,15 @@ res_AG_sig<-merge(res_AG_sig, functions, by="Gene_ID", type="left", match="first
 write.csv(as.data.frame(res_AG_sig), file="RNA/Adult-output/res_AG_sig.csv")
 sum(res_AG_sig$padj < 0.05, na.rm=TRUE)
 
-res_C_sig <- results(dds_adults, tidy=TRUE, contrast=c("condition", "lab_food_nothing", "hive_control"))
-write.csv(as.data.frame(res_C_sig), file="RNA/Adult-output/res_C_all.csv")
+res_C_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "lab_food_nothing", "hive_control"))
+#write.csv(as.data.frame(res_C_sig), file="RNA/Adult-output/res_C_all.csv")
 res_C_sig<- subset(res_C_sig, padj < 0.05)
 colnames(res_C_sig)[which(names(res_C_sig) == "row")] <- "Gene_ID"
 res_C_sig<-merge(res_C_sig, functions, by="Gene_ID", type="left", match="first")
 write.csv(as.data.frame(res_C_sig), file="RNA/Adult-output/res_C_sig.csv")
 sum(res_C_sig$padj < 0.05, na.rm=TRUE)
 
-res_LGBB_sig <- results(dds_adults, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "hive_control"))
+res_LGBB_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "larva_gut_bee_bread", "hive_control"))
 write.csv(as.data.frame(res_LGBB_sig), file="RNA/Adult-output/res_LGBB_all.csv")
 res_LGBB_sig<- subset(res_LGBB_sig, padj < 0.05)
 colnames(res_LGBB_sig)[which(names(res_LGBB_sig) == "row")] <- "Gene_ID"
@@ -969,7 +768,7 @@ res_LGBB_sig<-merge(res_LGBB_sig, functions, by="Gene_ID", type="left", match="f
 write.csv(as.data.frame(res_LGBB_sig), file="RNA/Adult-output/res_LGBB_sig.csv")
 sum(res_LGBB_sig$padj < 0.05, na.rm=TRUE)
 
-res_BB_sig <- results(dds_adults, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "hive_control"))
+res_BB_sig <- DESeq2::results(dds_adults, tidy=TRUE, contrast=c("condition", "bee_bread_addition", "hive_control"))
 write.csv(as.data.frame(res_BB_sig), file="RNA/Adult-output/res_BB_all.csv")
 res_BB_sig<- subset(res_BB_sig, padj < 0.05)
 colnames(res_BB_sig)[which(names(res_BB_sig) == "row")] <- "Gene_ID"
@@ -1008,23 +807,8 @@ GO_enrich.AG %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_AG_up.csv")
 
-### make list
-hub_genesGO <- read.csv("RNA/Adult-output/Go/GO_term_enrichment_AG_up.csv")
-# keep only highly significant terms
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.05) 
-
-#plot it
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("AG up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Adult-output/Go/AG_up.png", height = 8, width = 9)
-
 ## the one down-regulated gene not working for GOterm
 ```
-
 
 ```{r GO_BB}
 #up
@@ -1040,16 +824,6 @@ GO_enrich.BB %>%
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_BB_up.csv")
 
-hub_genesGO <- read.csv("RNA/Adult-output/Go/GO_term_enrichment_BB_up.csv")
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.05) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("BB up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Adult-output/Go/BB_up.png", height = 8, width = 9)
-
 #down
 BB_down <- read.csv("RNA/Adult-output/res_BB_sig_down.csv")
 
@@ -1060,16 +834,6 @@ GO_enrich.BB2 <- as.data.frame(summary(DsxModuleGo2))
 GO_enrich.BB2 %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_BB_down.csv")
-hub_genesGO2 <- read.csv("RNA/Adult-output/Go/GO_term_enrichment_BB_down.csv")
-hub_genesGO2 <- hub_genesGO2 %>%
-filter(Pvalue < 0.05) 
-
-g2 <- hub_genesGO2 %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g2, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("BB down compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Adult-output/Go/BB_down.png", height = 8, width = 9)
 ```
 
 ```{r GO_C}
@@ -1101,16 +865,6 @@ GO_enrich.LG <- as.data.frame(summary(DsxModuleGo6))
 GO_enrich.LG %>% 
 arrange(Pvalue) %>% 
 write.csv(file = "RNA/Adult-output/Go/GO_term_enrichment_LG_up.csv")
-
-hub_genesGO <- read.csv("RNA/Adult-output/Go/GO_term_enrichment_LG_up.csv")
-hub_genesGO <- hub_genesGO %>%
-filter(Pvalue < 0.05) 
-g <- hub_genesGO %>%
-  mutate(logPv = log(Pvalue))
-ggplot(g, aes(x = 0, y = Term, size = Count, color = logPv)) +
-  geom_point(alpha = 0.9) +
-  theme_classic()+ggtitle("LG up compared to Hive")+theme(axis.title.y = element_blank())
-ggsave("RNA/Adult-output/Go/LG_up.png", height = 8, width = 9)
 
 #down
 #not doable with GO term analysis
