@@ -1,0 +1,17 @@
+R code is available in the main folder ("Gene_expression_and_larva_weight.RMD"). 
+
+RNA Sequencing analysis
+For exploring gene expression profiles across different treatments, we did mRNA sequencing of 18 adult and 18 day six larval samples (three per treatment). RNA library preparation
+was done with the Illumina Nextera-XT DNA sample Prep kit according to the manufacturer’s protocol. The pooled libraries were sequenced using pair-end strategy (read length 50bp)
+on Novaseq 6000 platform at OIST. Reads were trimmed using AdapterRemoval (–trimwindows 5 –minquality 20) to remove adapter sequences and low quality reads prior to being 
+quantified using kallisto with the honey bee transcriptome (version Amel_HAv3.1) as a reference, using default parameters. 
+The R package DESeq2 was used to normalize data and determine which genes were differentially expressed among treatments in adult as well as larval samples. We obtained the gene
+model from the Ensemble BioMart database (data set 20 of metazoan ensemble; Apis mellifera (DH4) genes (Amel_HAv3.1)) by using makeTxDbFromBiomart function from the 
+GenomicFeatures package as well as metadata for these transcripts using the biomart R package. To reduce the variability of lowly expressed genes shrunken log2 fold changes (LFC) 
+were created by the lfcShrink function with type “apeglm”. A principal component analysis (PCA) was performed on varianceStabilizingTransformation (vst) transformed data of all 
+samples and for better visualization adult samples only to evaluate the distribution according to expression profiles. All treatments were compared against the hive control and to
+explore the effect of diet components onto larva expression into more detail, we repeated the analysis with the no-addition (C) lab treatment as comparison basis
+(results for this are in the folder "compared_against_C_lab_treatment"). 
+Genes were considered to be differentially expressed between two treatments at an FDR adjusted p-value <0.05. MA plots for adult and larva samples by the ggpubr ggmaplot function
+were created to visualize differences between lab treatments and the respective hive controls by plotting shrunken LFCs for each gene against its average expression. 
+Gene ontology (GO) enrichment analysis of the significantly differentially expressed genes between treatments were carried out using GOstats, GSEABase and Category R packages. 
