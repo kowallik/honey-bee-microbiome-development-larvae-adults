@@ -14,4 +14,6 @@ explore the effect of diet components onto larva expression into more detail, we
 (results for this are in the folder "compared_against_C_lab_treatment"). 
 Genes were considered to be differentially expressed between two treatments at an FDR adjusted p-value <0.05. MA plots for adult and larva samples by the ggpubr ggmaplot function
 were created to visualize differences between lab treatments and the respective hive controls by plotting shrunken LFCs for each gene against its average expression. 
-Gene ontology (GO) enrichment analysis of the significantly differentially expressed genes between treatments were carried out using GOstats, GSEABase and Category R packages. 
+Gene ontology (GO) enrichment analysis of the significantly differentially expressed genes between treatments were carried out using GOstats, GSEABase and Category R packages.
+
+For each treatment all significantly up- and down regulated genes as well as respective GO terms were put into an excel file. 
