@@ -1,0 +1,2353 @@
+---
+title: "R_microbiome_analysis_and_qPCR_final"
+author: "Vienna"
+date: "9/23/2021"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+library(RSQLite)
+library(DECIPHER)
+library(DESeq2)
+library(gridExtra)
+library(ggnewscale) ##new_scale()
+library(ggpubr) # ggarrange and ggerrorplot function
+library(ggthemes)
+library(grid) # rasterGrob()
+library(vegan)
+library(phyloseq)
+library(png)
+library(qgraph) # graph layout
+library(ggsignif)
+library(btools)
+library(RColorBrewer)
+library(tidyverse) # includes: ggplot2, dplyr, tidyr, readr, purr, tibble, stringr, forcats
+library(knitr)
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+set.seed(42)
+do_tech_analysis <- TRUE
+```
+
+# 16S microbiome analysis
+
+
+```{r}
+#read in otu table
+otu_table=read.csv("microbiome/combined_runs/data_files/Svtab.csv",sep=",",row.names=1)
+otu_table=as.matrix(otu_table)
+
+#read in taxonomy
+taxonomy=read.csv("microbiome/combined_runs/data_files/taxonomy2.csv",sep=",",row.names=1)
+taxonomy <- cbind(taxonomy, ASV = paste0("ASV", sprintf("%04d", 1:nrow(taxonomy))))
+taxonomy=as.matrix(taxonomy)
+
+metatable <- read.delim("microbiome/combined_runs/data_files/sample-metadata_combined_qiime3.txt") 
+#View(metatable)
+row.names(metatable) <- metatable[[1]]
+metatable<- metatable[,(-1)]
+META <- sample_data(metatable)
+
+#import as phyloseq objects
+OTU=otu_table(otu_table,taxa_are_rows=TRUE)
+TAX=tax_table(taxonomy)
+
+#create phyloseq object
+ps<- phyloseq(OTU, TAX, META)
+
+# change taxonomy header 
+colnames(tax_table(ps)) <- c(D0 = "Kingdom", D1 = "Phylum", D2 = "Class", 
+                              D3 = "Order", D4 = "Family", D5 = "Genus", D6 = "Species", ASV = "ASV")
+
+#The total number of ASVs in the whole dataset is 
+length(taxa_names(ps))
+
+#get rid of things we do not want
+ps1 = subset_taxa(ps, Kingdom =="Bacteria")
+ps1 <- prune_taxa(taxa_sums(ps1) > 5, ps1)
+ps1<-subset_taxa(ps1, (Order!="Chloroplast"))
+ps1<-subset_taxa(ps1, (Family!="Mitochondria"))
+length(taxa_names(ps1))
+#reduces total taxa numbers from 415 to 396 (minus 19)
+
+# mean, max and min of sample read counts
+smin <- min(sample_sums(ps1))
+smean <- mean(sample_sums(ps1))
+smax <- max(sample_sums(ps1))
+
+# printing the results
+cat("The minimum sample read count is:",smin)
+cat("The average sample read count is:",smean)
+cat("The maximum sample read count is:",smax)
+
+sample_sums(ps1)
+
+ps_run_two_larvae <- subset_samples(ps1, run == "two")
+ps_run_one_adults <- subset_samples(ps1, run == "one")
+
+sample_sums(ps_run_two_larvae)
+sample_sums(ps_run_one_adults)
+
+ps_run_two_larvae<-prune_taxa(taxa_sums(ps_run_two_larvae) > 0, ps_run_two_larvae)
+ps_run_one_adults<-prune_taxa(taxa_sums(ps_run_one_adults) > 0, ps_run_one_adults)
+
+ps_run_one_adults2 <- subset_samples(ps_run_one_adults, source == "adult")
+ps_run_two_larvae2 <- subset_samples(ps_run_two_larvae, source == "larvae")
+
+ps_run_two_larvae2<-prune_taxa(taxa_sums(ps_run_two_larvae2) > 0, ps_run_two_larvae2)
+ps_run_one_adults2<-prune_taxa(taxa_sums(ps_run_one_adults2) > 0, ps_run_one_adults2)
+
+smin <- min(sample_sums(ps_run_two_larvae2))
+smean <- mean(sample_sums(ps_run_two_larvae2))
+smax <- max(sample_sums(ps_run_two_larvae2))
+
+cat("The minimum sample read count is:",smin)
+cat("The average sample read count is:",smean)
+cat("The maximum sample read count is:",smax)
+
+smin <- min(sample_sums(ps_run_one_adults2))
+smean <- mean(sample_sums(ps_run_one_adults2))
+smax <- max(sample_sums(ps_run_one_adults2))
+
+cat("The minimum sample read count is:",smin)
+cat("The average sample read count is:",smean)
+cat("The maximum sample read count is:",smax)
+
+#write.csv(x=TAX, file="TAX")
+```
+
+# larvae
+
+### Plot rarefaction curve
+```{r rarefaction_curve2}
+rare<- ps_run_two_larvae2
+smin <- min(sample_sums(rare))
+cat("The minimum sample read count is:",smin)
+
+# rarefy
+set.seed(42)
+ps.rarefied = rarefy_even_depth(rare, rngseed=1, sample.size=7470, replace=F)
+library(ranacapa)
+cbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","maroon","khaki4","coral4","blueviolet","chocolate3","gray48")
+
+ggrare(ps.rarefied, step = 100, se = FALSE, color="treatment")+ scale_colour_manual(values=cbPalette)+geom_line(size=1)+ theme_bw()+theme(axis.line = element_line(colour = "black"))+ theme(legend.title = element_blank(),
+                legend.background = element_blank(),
+                legend.key = element_blank()) + theme(text = element_text(size = 22))+theme(strip.text = element_text(face="bold", size=20))+ theme(axis.title.x=element_blank())+ggtitle("Rarefaction larvae samples")+theme(plot.title = element_text(hjust = 0.5, size=20, face="italic"))+theme(legend.text=element_text(size=17, face="italic"))
+ggsave("microbiome/combined_runs/figures/rarefaction_larvae.png", height = 5, width = 12)
+```
+#The two samples which show much higher species richness are the samples "29.10-LG-III" and "29.10 LG-V"
+
+## Alpha diversity larvae
+
+```{r alpha_Shannon_larvae}
+alpha<- ps_run_two_larvae2
+alpha <- subset_samples(alpha, treatment2 != "start_larvae")
+#rarefy to even numbers
+set.seed(1)  
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=7069, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+sample_data(alpha1_ra)$treatment_day<-factor(sample_data(alpha1_ra)$treatment_day,levels=c("three","four","six"), labels=c("Day three","Day four","Day six"))
+
+sample_data(alpha1_ra)$treatment<-factor(sample_data(alpha1_ra)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(alpha1_ra)$treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+alpha_meas = c("Shannon")
+p2 <- plot_richness(alpha1_ra,"treatment",color="treatment", measures=alpha_meas)
+p2$layers <- p2$layers[-1]
+p2<-p2 + geom_boxplot(data=p2$data, aes(x=treatment, y=value),show_guide=FALSE, alpha=0.1)+geom_point(position = position_jitter(w = 0.2, h = 0.1),show_guide=FALSE) +
+  geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.02,vjust=0.5, color=("grey20"),map_signif_level=sigFunc, y_position = c(4.2,4.8,5,5.4,6), margin_top = 0.1, textsize=6, test = wilcox.test)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))+ylim(-1,6)
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank()) +ylab("Shannon alpha diversity")
+p2<-p2 + facet_wrap(~treatment_day, scales="free",nrow=2)
+p2 <- p2+ theme(panel.border = element_blank())
+p2<-p2 +theme(axis.text.y = element_text(size=16))+theme(axis.title.y = element_text(size=17,face="bold"))+theme(strip.text = element_text(face="bold", size=16, color="gray40"))+ theme(axis.title.x=element_blank())+theme(axis.text.x = element_text(size=16,angle=-50))+theme(strip.background =element_rect(fill="white", color="white"))
+ggsave("microbiome/combined_runs/figures/alpha_Shannon_larvae_all.png", height = 6.5, width = 7.5)
+```
+
+```{r alpha_Shannon_larvae}
+alpha<- ps_run_two_larvae2
+alpha <- subset_samples(alpha, treatment_day == "six")
+#rarefy to even numbers
+set.seed(1)  
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=7069, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+sample_data(alpha1_ra)$treatment<-factor(sample_data(alpha1_ra)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(alpha1_ra)$treatment)
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+alpha_meas = c("Shannon")
+p2 <- plot_richness(alpha1_ra,"treatment",color="treatment", measures=alpha_meas)
+p2$layers <- p2$layers[-1]
+p2<-p2 + geom_boxplot(data=p2$data, aes(x=treatment, y=value),show_guide=FALSE, alpha=0.1)+geom_point(position = position_jitter(w = 0.2, h = 0.1),show_guide=FALSE) +
+  geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.02,vjust=0.5, color=("grey20"),map_signif_level=sigFunc, y_position = c(4.2,4.8,5,5.4,6), margin_top = 0.1, textsize=6, test = wilcox.test)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))+ylim(-1,6)
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank()) +ylab("Shannon alpha diversity")
+p2 <- p2+ theme(panel.border = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_blank())
+p2<-p2 +theme(axis.text.y = element_text(size=16))+theme(axis.title.y = element_text(size=17,face="bold"))+ theme(axis.title.x=element_blank())+theme(axis.text.x = element_text(size=16,angle=-50))
+ggsave("microbiome/combined_runs/figures/alpha_Shannon_larvae_day_six.png", height = 3.5, width = 6.5)
+```
+
+### make statistical comparisons Shannon stats
+```{r warning=FALSE}
+alpha<- ps_run_two_larvae2
+alpha <- subset_samples(alpha, treatment2 != "start_larvae")
+#rarefy to even numbers
+set.seed(1)  
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=7470, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+results = estimate_richness(alpha1_ra, measures = 'Shannon')
+d = sample_data(alpha1_ra)
+
+# calculate wilcox-test between Hive control and treatments
+# day three
+
+Hive_3 = results[d[,'day_in_lab'] == 'Hive_three',]
+C_3 = results[d[,'day_in_lab'] == 'C_three',]
+AG_3 = results[d[,'day_in_lab'] == 'AG_three',]
+LG_3 = results[d[,'day_in_lab'] == 'LG_three',]
+BB_3 = results[d[,'day_in_lab'] == 'BB_three',]
+LGBB_3 = results[d[,'day_in_lab'] == 'LGBB_three',]
+
+wilcox.test(Hive_3, C_3)
+wilcox.test(Hive_3, AG_3)
+wilcox.test(Hive_3, LG_3)
+wilcox.test(Hive_3, BB_3)
+wilcox.test(Hive_3, LGBB_3)
+
+
+pvalues<-c(0.0079,0.0079,0.84,0.032,0.056)
+p.adjust(pvalues,method="fdr")
+
+# day four
+
+Hive_4 = results[d[,'day_in_lab'] == 'Hive_four',]
+C_4 = results[d[,'day_in_lab'] == 'C_four',]
+AG_4 = results[d[,'day_in_lab'] == 'AG_four',]
+LG_4 = results[d[,'day_in_lab'] == 'LG_four',]
+BB_4 = results[d[,'day_in_lab'] == 'BB_four',]
+LGBB_4 = results[d[,'day_in_lab'] == 'LGBB_four',]
+
+wilcox.test(Hive_4, C_4)
+wilcox.test(Hive_4, AG_4)
+wilcox.test(Hive_4, LG_4)
+wilcox.test(Hive_4, BB_4)
+wilcox.test(Hive_4, LGBB_4)
+
+pvalues<-c(0.4,1,0.1,0.4,0.1)
+p.adjust(pvalues,method="fdr")
+
+# day six
+
+Hive_6 = results[d[,'day_in_lab'] == 'Hive_six',]
+C_6 = results[d[,'day_in_lab'] == 'C_six',]
+AG_6 = results[d[,'day_in_lab'] == 'AG_six',]
+LG_6 = results[d[,'day_in_lab'] == 'LG_six',]
+BB_6 = results[d[,'day_in_lab'] == 'BB_six',]
+LGBB_6 = results[d[,'day_in_lab'] == 'LGBB_six',]
+
+wilcox.test(Hive_6, C_6)
+wilcox.test(Hive_6, AG_6)
+wilcox.test(Hive_6, LG_6)
+wilcox.test(Hive_6, BB_6)
+wilcox.test(Hive_6, LGBB_6)
+
+pvalues<-c(0.004,0.91,0.94,0.18,0.699)
+p.adjust(pvalues,method="fdr")
+
+#statistics
+
+alpha<- ps_run_two_larvae2
+set.seed(1)  
+alpha <- rarefy_even_depth(alpha,sample.size=7470, replace=FALSE, rngseed = 1) 
+
+alpha_day_three <- subset_samples(alpha, treatment_day == "three")
+alpha_day_three<-prune_taxa(taxa_sums(alpha_day_three) > 0, alpha_day_three)
+rich = estimate_richness(alpha_day_three)
+pairwise.wilcox.test(rich$Observed,sample_data(alpha_day_three)$treatment,p.adjust.method ="fdr")
+pairwise.wilcox.test(rich$Shannon,sample_data(alpha_day_three)$treatment,p.adjust.method ="fdr")
+
+alpha_day_four <- subset_samples(alpha, treatment_day == "four")
+alpha_day_four<-prune_taxa(taxa_sums(alpha_day_four) > 0, alpha_day_four)
+rich2 = estimate_richness(alpha_day_four)
+pairwise.wilcox.test(rich2$Observed,sample_data(alpha_day_four)$treatment,p.adjust.method ="fdr")
+pairwise.wilcox.test(rich2$Shannon,sample_data(alpha_day_four)$treatment,p.adjust.method ="fdr")
+
+alpha_day_six <- subset_samples(alpha, treatment_day == "six")
+alpha_day_six<-prune_taxa(taxa_sums(alpha_day_six) > 0, alpha_day_six)
+rich3 = estimate_richness(alpha_day_six)
+pairwise.wilcox.test(rich3$Observed,sample_data(alpha_day_six)$treatment,p.adjust.method ="fdr")
+pairwise.wilcox.test(rich3$Shannon,sample_data(alpha_day_six)$treatment,p.adjust.method ="fdr")
+```
+
+
+```{r alpha_Observed_larvae_all}
+alpha<- ps_run_two_larvae2
+alpha <- subset_samples(alpha, treatment2 != "start_larvae")
+#rarefy to even numbers
+set.seed(1)  
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=7470, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+sample_data(alpha1_ra)$treatment_day<-factor(sample_data(alpha1_ra)$treatment_day,levels=c("three","four","six"), labels=c("Day three","Day four","Day six"))
+
+sample_data(alpha1_ra)$treatment<-factor(sample_data(alpha1_ra)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+                                         #, labels=c("Hive control","RJ","RJ \n +adult gut", "RJ \n +larvae gut", "RJ \n +bee bread","RJ \n +larvae gut \n +bee bread"))
+levels(sample_data(alpha1_ra)$treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+alpha_meas = c("Observed")
+p2 <- plot_richness(alpha1_ra,"treatment",color="treatment", measures=alpha_meas)
+p2$layers <- p2$layers[-1]
+p2<-p2 + geom_boxplot(data=p2$data, aes(x=treatment, y=value),show_guide=FALSE, alpha=0.1)+geom_point(position = position_jitter(w = 0.2, h = 0.1),show_guide=FALSE) +
+  geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.02,vjust=0.5, color=("grey20"),map_signif_level=sigFunc, y_position = c(80,90,100,110,120), margin_top = 0.1, textsize=6, test = wilcox.test)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))+ylim(0,155)
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank()) +ylab("Observed species")
+p2<-p2 + facet_wrap(~treatment_day, scales="free",nrow=2)
+p2 <- p2+ theme(panel.border = element_blank())
+p2<-p2 +theme(axis.text.y = element_text(size=16))+theme(axis.title.y = element_text(size=17,face="bold"))+theme(strip.text = element_text(face="bold", size=16, color="gray40"))+ theme(axis.title.x=element_blank())+theme(axis.text.x = element_text(size=16,angle=-50))+theme(strip.background =element_rect(fill="white", color="white"))
+ggsave("microbiome/combined_runs/figures/alpha_Observed_larvae_all.png", height = 6.5, width = 7.5)
+```
+
+```{r alpha_Observed_larvae, fig.heigt=13, fig.width=8}
+alpha<- ps_run_two_larvae2
+alpha <- subset_samples(alpha, treatment_day == "six")
+#rarefy to even numbers
+set.seed(1)  
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=7470, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+sample_data(alpha1_ra)$treatment<-factor(sample_data(alpha1_ra)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+levels(sample_data(alpha1_ra)$treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+alpha_meas = c("Observed")
+p2 <- plot_richness(alpha1_ra,"treatment",color="treatment", measures=alpha_meas)
+p2$layers <- p2$layers[-1]
+p2<-p2 + geom_boxplot(data=p2$data, aes(x=treatment, y=value),show_guide=FALSE, alpha=0.1)+geom_point(position = position_jitter(w = 0.2, h = 0.1),show_guide=FALSE) +
+  geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.02,vjust=0.5, color=("grey20"),map_signif_level=sigFunc, y_position = c(50,60,70,70,70), margin_top = 0.1, textsize=6, test = wilcox.test)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))+ylim(0,80)
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank()) +ylab("Observed species")
+p2 <- p2+ theme(panel.border = element_blank())
+Observed_larvae<-p2 +theme(axis.text.y = element_text(size=15))+theme(axis.title.y = element_text(size=16))+theme(strip.text = element_blank())+ theme(axis.title.x=element_blank())+theme(axis.text.x = element_text(size=15,angle=-50))+theme(strip.background =element_rect(fill="white", color="white"))
+Observed_larvae<-Observed_larvae+ theme(axis.ticks.x = element_blank())+theme(axis.text.x = element_blank())
+ggsave("microbiome/combined_runs/figures/alpha_Observed_larvae_day_six.png", height = 3.5, width = 6.5)
+```
+
+### make statistical comparisons Observed stats
+```{r warning=FALSE}
+alpha<- ps_run_two_larvae2
+alpha <- subset_samples(alpha, treatment2 != "start_larvae")
+#rarefy to even numbers
+set.seed(1)  
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=7470, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+results = estimate_richness(alpha1_ra, measures = 'Observed')
+d = sample_data(alpha1_ra)
+
+# calculate wilcox-test between Hive control and treatments
+# day three
+
+Hive_3 = results[d[,'day_in_lab'] == 'Hive_three',]
+C_3 = results[d[,'day_in_lab'] == 'C_three',]
+AG_3 = results[d[,'day_in_lab'] == 'AG_three',]
+LG_3 = results[d[,'day_in_lab'] == 'LG_three',]
+BB_3 = results[d[,'day_in_lab'] == 'BB_three',]
+LGBB_3 = results[d[,'day_in_lab'] == 'LGBB_three',]
+
+wilcox.test(Hive_3, C_3)
+wilcox.test(Hive_3, AG_3)
+wilcox.test(Hive_3, LG_3)
+wilcox.test(Hive_3, BB_3)
+wilcox.test(Hive_3, LGBB_3)
+
+
+pvalues<-c(0.008,0.012,0.016,0.008,0.12)
+p.adjust(pvalues,method="fdr")
+
+# day four
+
+Hive_4 = results[d[,'day_in_lab'] == 'Hive_four',]
+C_4 = results[d[,'day_in_lab'] == 'C_four',]
+AG_4 = results[d[,'day_in_lab'] == 'AG_four',]
+LG_4 = results[d[,'day_in_lab'] == 'LG_four',]
+BB_4 = results[d[,'day_in_lab'] == 'BB_four',]
+LGBB_4 = results[d[,'day_in_lab'] == 'LGBB_four',]
+
+wilcox.test(Hive_4, C_4)
+wilcox.test(Hive_4, AG_4)
+wilcox.test(Hive_4, LG_4)
+wilcox.test(Hive_4, BB_4)
+wilcox.test(Hive_4, LGBB_4)
+
+pvalues<-c(1,0.1,0.1,0.7,0.1)
+p.adjust(pvalues,method="fdr")
+
+
+# day six
+
+Hive_6 = results[d[,'day_in_lab'] == 'Hive_six',]
+C_6 = results[d[,'day_in_lab'] == 'C_six',]
+AG_6 = results[d[,'day_in_lab'] == 'AG_six',]
+LG_6 = results[d[,'day_in_lab'] == 'LG_six',]
+BB_6 = results[d[,'day_in_lab'] == 'BB_six',]
+LGBB_6 = results[d[,'day_in_lab'] == 'LGBB_six',]
+
+wilcox.test(Hive_6, C_6)
+wilcox.test(Hive_6, AG_6)
+wilcox.test(Hive_6, LG_6)
+wilcox.test(Hive_6, BB_6)
+wilcox.test(Hive_6, LGBB_6)
+
+pvalues<-c(0.008,0.014,0.57,0.005,0.07)
+p.adjust(pvalues,method="fdr")
+```
+
+
+### ordination plots
+```{r NMDS_larvae}
+#NMDS on Bray-Curtis
+ord2<- ps_run_two_larvae2
+ord2 = subset_samples(ord2, treatment_day== "six")
+ord2 <- transform_sample_counts(ord2, function(OTU) {OTU / sum(OTU)})
+sample_data(ord2)$treatment<-factor(sample_data(ord2)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(ord2)$treatment)
+
+set.seed(1)
+dist<-phyloseq::distance(ord2, method="bray") 
+ordination = ordinate(ord2, method="NMDS", distance=dist)
+cat("stress is:", ordination$stress)
+p2 <- plot_ordination(ord2, ordination, color="treatment") +geom_point(size=2.5)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 6)),size=9,alpha=0.3)))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank())
+p2 <- p2+ theme(panel.border = element_blank())
+p2<-p2 + theme(text = element_text(size = 16))+theme(strip.text = element_blank())
+p2<-p2+theme(legend.position="bottom")+theme(strip.background =element_rect(fill="white", color="white"))
+NMDS<-p2+stat_ellipse(aes(group = treatment),size=1.5, alpha=0.5)+ theme(panel.spacing.x=unit(5.5, "lines"))+ theme(axis.title.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 20)))+ theme(legend.text = element_text(face="bold", size=16))
+ggsave("microbiome/combined_runs/figures/NMDS_larvae_day_six.png", height = 5.5, width = 7.5)
+```
+
+```{r PCoA_larva}
+#PCoA on Bray-Curtis
+ord2<- ps_run_two_larvae2
+ord2 = subset_samples(ord2, treatment_day== "six")
+ord2 <- transform_sample_counts(ord2, function(OTU) {OTU / sum(OTU)})
+sample_data(ord2)$treatment<-factor(sample_data(ord2)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(ord2)$treatment)
+set.seed(1)
+dist<-phyloseq::distance(ord2, method="bray") 
+ordination = ordinate(ord2, method="PCoA", distance=dist)
+p2 <- plot_ordination(ord2, ordination, color="treatment") +geom_point(size=2.5)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 6)),size=9,alpha=0.3)))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank())
+p2 <- p2+ theme(panel.border = element_blank())
+p2<-p2 + theme(text = element_text(size = 16))+theme(strip.text = element_blank())
+p2<-p2+theme(legend.position="bottom")+theme(strip.background =element_rect(fill="white", color="white"))
+PCoA_larvae<-p2+stat_ellipse(aes(group = treatment),size=1.5, alpha=0.5)+ theme(panel.spacing.x=unit(5.5, "lines"))+ theme(axis.title.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 20)))+ theme(legend.text = element_text(face="bold", size=17,color="gray9"))
+ggsave("microbiome/combined_runs/figures/PCoA_day_six.png", height = 5.5, width = 8)
+```
+
+### Beta diversity stats
+
+#### test difference between treatments and hive control
+
+```{r}
+#day 3
+set.seed(42)
+compare=ps_run_two_larvae2
+compare1 <- transform_sample_counts(compare, function(OTU) {OTU / sum(OTU)})
+
+all<- subset_samples(compare1, treatment_day== "three" | treatment_day== "four" | treatment_day== "six")
+df = as(sample_data(all), "data.frame")
+d = distance(all, "bray")
+adonis = adonis(d ~ treatment*treatment_day, df, perm=999)
+adonis
+
+day3 = subset_samples(compare1, treatment_day== "three")
+day4 = subset_samples(compare1, treatment_day== "four")
+day6 = subset_samples(compare1, treatment_day== "six")
+
+df = as(sample_data(day3), "data.frame")
+d = distance(day3, "bray")
+adonis = adonis(d ~ treatment, df, perm=999)
+adonis
+
+df = as(sample_data(day4), "data.frame")
+d = distance(day4, "bray")
+adonis = adonis(d ~ treatment, df, perm=999)
+adonis
+
+df = as(sample_data(day6), "data.frame")
+d = distance(day6, "bray")
+adonis = adonis(d ~ treatment, df, perm=999)
+adonis
+
+subs <- subset_samples(compare1, day_in_lab %in% c("Hive_three", "C_three"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs1 <- subset_samples(compare1, day_in_lab %in% c("Hive_three", "AG_three"))
+subs1 <- prune_taxa(taxa_sums(subs1) > 0, subs1)
+metadata <- as(sample_data(subs1), "data.frame")
+adonis(distance(subs1, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs2 <- subset_samples(compare1, day_in_lab %in% c("Hive_three", "LG_three"))
+subs2 <- prune_taxa(taxa_sums(subs2) > 0, subs2)
+metadata <- as(sample_data(subs2), "data.frame")
+adonis(distance(subs2, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs <- subset_samples(compare1, day_in_lab %in% c("Hive_three", "BB_three"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs3 <- subset_samples(compare1, day_in_lab %in% c("Hive_three", "LGBB_three"))
+subs3 <- prune_taxa(taxa_sums(subs3) > 0, subs3)
+metadata <- as(sample_data(subs3), "data.frame")
+adonis(distance(subs3, method="bray") ~ treatment,data = metadata, perm=999)
+
+pvalues<-c(0.01,0.006,0.006,0.011,0.012)
+p.adjust(pvalues,method="fdr")
+```
+
+```{r}
+#day 4
+set.seed(42)
+compare=ps_run_two_larvae2
+compare1 <- transform_sample_counts(compare, function(OTU) {OTU / sum(OTU)})
+
+subs <- subset_samples(compare1, day_in_lab %in% c("Hive_four", "C_four"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs1 <- subset_samples(compare1, day_in_lab %in% c("Hive_four", "AG_four"))
+subs1 <- prune_taxa(taxa_sums(subs1) > 0, subs1)
+metadata <- as(sample_data(subs1), "data.frame")
+adonis(distance(subs1, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs2 <- subset_samples(compare1, day_in_lab %in% c("Hive_four", "LG_four"))
+subs2 <- prune_taxa(taxa_sums(subs2) > 0, subs2)
+metadata <- as(sample_data(subs2), "data.frame")
+adonis(distance(subs2, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs <- subset_samples(compare1, day_in_lab %in% c("Hive_six", "BB_six"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs3 <- subset_samples(compare1, day_in_lab %in% c("Hive_four", "LGBB_four"))
+subs3 <- prune_taxa(taxa_sums(subs3) > 0, subs3)
+metadata <- as(sample_data(subs3), "data.frame")
+adonis(distance(subs3, method="bray") ~ treatment,data = metadata, perm=999)
+
+pvalues<-c(0.2,0.1,0.1,0.002,0.1)
+p.adjust(pvalues,method="fdr")
+```
+
+```{r}
+#day 6
+set.seed(42)
+compare=ps_run_two_larvae2
+compare1 <- transform_sample_counts(compare, function(OTU) {OTU / sum(OTU)})
+
+subs <- subset_samples(compare1, day_in_lab %in% c("Hive_six", "C_six"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs1 <- subset_samples(compare1, day_in_lab %in% c("Hive_six", "AG_six"))
+subs1 <- prune_taxa(taxa_sums(subs1) > 0, subs1)
+metadata <- as(sample_data(subs1), "data.frame")
+adonis(distance(subs1, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs2 <- subset_samples(compare1, day_in_lab %in% c("Hive_six", "LG_six"))
+subs2 <- prune_taxa(taxa_sums(subs2) > 0, subs2)
+metadata <- as(sample_data(subs2), "data.frame")
+adonis(distance(subs2, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs <- subset_samples(compare1, day_in_lab %in% c("Hive_six", "BB_six"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs3 <- subset_samples(compare1, day_in_lab %in% c("Hive_six", "LGBB_six"))
+subs3 <- prune_taxa(taxa_sums(subs3) > 0, subs3)
+metadata <- as(sample_data(subs3), "data.frame")
+adonis(distance(subs3, method="bray") ~ treatment,data = metadata, perm=999)
+
+pvalues<-c(0.004,0.009,0.004,0.003,0.003)
+p.adjust(pvalues,method="fdr")
+```
+
+
+### test spread of variance of groups
+```{r betadisp_larva}
+set.seed(53)
+test<-ps_run_two_larvae2
+test2 <- transform_sample_counts(test, function(OTU) {OTU / sum(OTU)})
+
+cycle3 = subset_samples(test2, treatment_day == "three")
+cycle3 <- prune_taxa(taxa_sums(cycle3) > 0, cycle3)
+
+cycle4 = subset_samples(test2, treatment_day == "four")
+cycle4 <- prune_taxa(taxa_sums(cycle4) > 0, cycle4)
+
+cycle6 = subset_samples(test2, treatment_day == "six")
+cycle6 <- prune_taxa(taxa_sums(cycle6) > 0, cycle6)
+
+#testing treatment
+set.seed(53)
+d_cycle3 = distance(cycle3, "bray")
+df_cycle3 = as(sample_data(cycle3), "data.frame")
+df_cycle3$treatment <- factor(df_cycle3$treatment , levels=c("Hive","C","AG","LG","BB","LGBB"))
+groups <- df_cycle3[["treatment"]]
+beta <- betadisper(d_cycle3, df_cycle3$treatment)
+permutest(beta,pairwise = TRUE, permutations = 999)
+anova(betadisper(d_cycle3, groups))
+mod.HSD <- TukeyHSD(beta,conf.level = 0.95)
+mod.HSD
+plot(betadisper(d_cycle3, groups),main="Day three",lwd=2, label = TRUE,label.cex = 0.7,col=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","hotpink"))
+boxplot(betadisper(d_cycle3, groups),main="Day three",border=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","hotpink"),xlab="")
+
+set.seed(53)
+d_cycle4 = distance(cycle4, "bray")
+df_cycle4 = as(sample_data(cycle4), "data.frame")
+df_cycle4$treatment <- factor(df_cycle4$treatment, levels=c("Hive","C","AG","LG","BB","LGBB"))
+groups <- df_cycle4[["treatment"]]
+beta <- betadisper(d_cycle4, df_cycle4$treatment)
+permutest(beta,pairwise = TRUE, permutations = 999)
+anova(betadisper(d_cycle4, groups))
+mod.HSD <- TukeyHSD(beta,conf.level = 0.95)
+mod.HSD
+plot(betadisper(d_cycle4, groups),main="Day four",lwd=2, label = TRUE,label.cex = 0.7,col=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","hotpink"))
+boxplot(betadisper(d_cycle4, groups),main="Day four",border=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","hotpink"),xlab="")
+
+set.seed(53)
+d_cycle6 = distance(cycle6, "bray")
+df_cycle6 = as(sample_data(cycle6), "data.frame")
+df_cycle6$treatment <- factor(df_cycle6$treatment , levels=c("Hive","C","AG","LG","BB","LGBB"))
+groups <- df_cycle6[["treatment"]]
+beta <- betadisper(d_cycle6, df_cycle6$treatment)
+permutest(beta,pairwise = TRUE, permutations = 999)
+anova(betadisper(d_cycle6, groups))
+mod.HSD <- TukeyHSD(beta,conf.level = 0.95)
+mod.HSD
+plot(betadisper(d_cycle6, groups),main="Larvae day six",lwd=2, label = TRUE,label.cex = 0.7,col=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","hotpink"))
+boxplot(betadisper(d_cycle6, groups),main="Larvae day six",border=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","hotpink"),xlab="")
+```
+
+
+
+# Adults Alpha and beta diversity
+
+
+### Plot rarefaction curve
+```{r rarefaction_curve}
+rare<- ps_run_one_adults
+smin <- min(sample_sums(rare))
+cat("The minimum sample read count is:",smin)
+
+# rarefy
+set.seed(42)
+ps.rarefied = rarefy_even_depth(rare, rngseed=1, sample.size=39678, replace=F)
+library(ranacapa)
+cbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7","maroon","khaki4")
+
+ggrare(ps.rarefied, step = 100, se = FALSE, color="treatment")+ scale_colour_manual(values=cbPalette)+geom_line(size=1)+ theme_bw()+theme(axis.line = element_line(colour = "black"))+ theme(legend.title = element_blank(),
+                legend.background = element_blank(),
+                legend.key = element_blank()) + theme(text = element_text(size = 22))+theme(strip.text = element_text(face="bold", size=20))+ theme(axis.title.x=element_blank())+ggtitle("Rarefaction adult samples")+theme(plot.title = element_text(hjust = 0.5, size=20, face="italic"))+theme(legend.text=element_text(size=17, face="italic"))
+
+ggsave("microbiome/combined_runs/figures/rarefaction_adults.png", height = 5, width = 12)
+```
+
+*** Supplementary figure: Rarefaction curves were used as a qualitative method to estimate the species richness as a function of sequencing depth for all samples. Rarefaction curves reached their asymptotes for all samples, suggesting that saturation in sequencing was achieved.
+
+
+##  Alpha diversity 
+
+```{r alpha_Shannon_adults, fig.heigt=13, fig.width=8}
+alpha<- ps_run_one_adults2
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=39678, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+sample_data(alpha1_ra)$treatment<-factor(sample_data(alpha1_ra)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+                                         #, labels=c("Hive control","RJ","RJ \n +adult gut", "RJ \n +larvae gut", "RJ \n +bee bread","RJ \n +larvae gut \n +bee bread"))
+levels(sample_data(alpha1_ra)$treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+alpha_meas = c("Shannon")
+p2 <- plot_richness(alpha1_ra,"treatment",color="treatment", measures=alpha_meas)
+p2$layers <- p2$layers[-1]
+p2<-p2 + geom_boxplot(data=p2$data, aes(x=treatment, y=value),show_guide=FALSE, alpha=0.1)+geom_point(position = position_jitter(w = 0.2, h = 0.1),show_guide=FALSE) +
+  geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.02,vjust=0.5, color=("grey20"),map_signif_level=sigFunc, y_position = c(3.9,3.9,3.9,3.6,3.9), margin_top = 0.1, textsize=6, test = wilcox.test)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))+ylim(1.7,4)
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank()) +ylab("Shannon alpha diversity")
+p2 <- p2+ theme(panel.border = element_blank())+theme(strip.text = element_blank())
+p2<-p2 + theme(text = element_text(size = 16))+theme(strip.text = element_text(face="bold", size=15, color="gray40"))+ theme(axis.title.x=element_blank())+theme(axis.text.x = element_text(size=17,angle=-45))+theme(strip.background =element_rect(fill="white", color="white"))
+ggsave("microbiome/combined_runs/figures/alpha_Shannon_adults.png", height = 3.5, width = 6.5)
+```
+***The Shannon index  captures  information  about  both  the  species  richness  (number  of species) and the relative abundances of the species. Increased Shannon index means increased species diversity.
+
+
+```{r alpha_observed_adults}
+alpha<- ps_run_one_adults2
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=39678, replace=FALSE, rngseed = 1) 
+alpha1_ra<-prune_taxa(taxa_sums(alpha1_ra) > 0, alpha1_ra)
+
+sample_data(alpha1_ra)$treatment<-factor(sample_data(alpha1_ra)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(alpha1_ra)$treatment)
+
+alpha_meas = c("Observed")
+p2 <- plot_richness(alpha1_ra,"treatment",color="treatment", measures=alpha_meas)
+p2$layers <- p2$layers[-1]
+p2<-p2 + geom_boxplot(data=p2$data, aes(x=treatment, y=value),show_guide=FALSE, alpha=0.1)+geom_point(position = position_jitter(w = 0.2, h = 0.1),show_guide=FALSE)
+#p2 <- p2 + guides(fill=guide_legend(title=element_blank()))+ylim(1.7,4)
+p2 <- p2 + theme(plot.title = element_blank())+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank()) +ylab("Observed species")
+p2 <- p2+ theme(panel.border = element_blank())+ theme(axis.ticks.x = element_blank())
+Observed_adults<-p2 + theme(text = element_text(size = 17))+theme(strip.text = element_blank())+ theme(axis.title.x=element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(axis.text.x = element_blank())+ theme(axis.title.y=element_blank())
+ggsave("microbiome/combined_runs/figures/alpha_Observed_adults.png", height = 3.5, width = 6.5)
+```
+
+```{r warnings=FALSE}
+alpha<- ps_run_one_adults2
+alpha1_ra <- rarefy_even_depth(alpha,sample.size=39678, replace=FALSE, rngseed = 1) 
+
+#Shannon
+
+results = estimate_richness(alpha1_ra, measures = 'Shannon')
+d = sample_data(alpha1_ra)
+
+# calculate wilcox-test
+H = results[d[,'treatment'] == 'Hive',]
+C = results[d[,'treatment'] == 'C',]
+AG = results[d[,'treatment'] == 'AG',]
+LG = results[d[,'treatment'] == 'LG',]
+BB = results[d[,'treatment'] == 'BB',]
+LGBB = results[d[,'treatment'] == 'LGBB',]
+
+wilcox.test(H, C)
+wilcox.test(H, AG)
+wilcox.test(H, LG)
+wilcox.test(H, BB)
+wilcox.test(H, LGBB)
+
+pvalues<-c(0.21,0.12,0.34,0.008,0.72)
+p.adjust(pvalues,method="fdr")
+
+# observed
+
+results1 = estimate_richness(alpha1_ra, measures = 'Observed')
+d1 = sample_data(alpha1_ra)
+
+# calculate wilcox-test
+H1 = results1[d1[,'treatment'] == 'Hive',]
+C1 = results1[d1[,'treatment'] == 'C',]
+AG1 = results1[d1[,'treatment'] == 'AG',]
+LG1 = results1[d1[,'treatment'] == 'LG',]
+BB1 = results1[d1[,'treatment'] == 'BB',]
+LGBB1= results1[d1[,'treatment'] == 'LGBB',]
+
+wilcox.test(H1, C1)
+wilcox.test(H1, AG1)
+wilcox.test(H1, LG1)
+wilcox.test(H1, BB1)
+wilcox.test(H1, LGBB1)
+
+pvalues<-c(0.41,0.12,0.4,0.11,0.2)
+p.adjust(pvalues,method="fdr")
+
+#statistics
+rich = estimate_richness(alpha1_ra)
+pairwise.wilcox.test(rich$Observed,sample_data(alpha1_ra)$treatment,p.adjust.method ="fdr")
+
+pairwise.wilcox.test(rich$Shannon,sample_data(alpha1_ra)$treatment,p.adjust.method ="fdr")
+```
+
+# Beta diversity
+
+### ordination plots
+```{r NMDS_adults}
+#NMDS on Bray-Curtis
+ord2<- ps_run_one_adults2
+ord2 <- transform_sample_counts(ord2, function(OTU) {OTU / sum(OTU)})
+sample_data(ord2)$treatment<-factor(sample_data(ord2)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(ord2)$treatment)
+set.seed(1)
+dist<-phyloseq::distance(ord2, method="bray") 
+ordination = ordinate(ord2, method="NMDS", distance=dist)
+cat("stress is:", ordination$stress)
+p2 <- plot_ordination(ord2, ordination, color="treatment") +geom_point(size=2.5)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 6)),size=7,alpha=0.5)))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank())
+p2 <- p2+ theme(panel.border = element_blank())
+p2<-p2 + theme(text = element_text(size = 16.5))+theme(strip.text = element_blank())
+p2<-p2+theme(legend.position="bottom")+theme(strip.background =element_rect(fill="white", color="white"))
+p2<-p2+stat_ellipse(aes(group = treatment),size=1.5, alpha=0.5)+ theme(panel.spacing.x=unit(5.5, "lines"))+coord_cartesian(xlim = c(-0.4, 1))+coord_cartesian(ylim = c(-0.8, 0.8))+ theme(axis.title.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 20)))
+ggsave("microbiome/combined_runs/figures/NMDS_adults.png", height = 5.5, width = 8)
+```
+
+```{r PCoA_adults}
+#PCoA on Bray-Curtis
+ord2<- ps_run_one_adults2
+ord2 = subset_samples(ord2, treatment != "AG_Larva" & treatment != "inoculum" & treatment != "old")
+ord2 <- transform_sample_counts(ord2, function(OTU) {OTU / sum(OTU)})
+sample_data(ord2)$treatment<-factor(sample_data(ord2)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"),labels=c("Hive control", "+no addition (C)", "+adult gut (AG)", "+larvae gut (LG)", "+bee bread (BB)", "+larvae gut & bee bread (LGBB)"))
+levels(sample_data(ord2)$treatment)
+set.seed(1)
+dist<-phyloseq::distance(ord2, method="bray") 
+ordination = ordinate(ord2, method="PCoA", distance=dist)
+p2 <- plot_ordination(ord2, ordination, color="treatment") +geom_point(size=2.5)
+p2 <- p2 + guides(fill=guide_legend(title=element_blank()))
+p2 <- p2 + theme(plot.title = element_text(hjust = 0.5))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 6)),size=9,alpha=0.3)))
+p2 <- p2+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(panel.background = element_blank())
+p2 <- p2+theme(axis.line = element_line(colour = "black"))
+p2<- p2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank())
+p2 <- p2+ theme(panel.border = element_blank())
+p2<-p2 + theme(text = element_text(size = 16))+theme(strip.text = element_blank())
+p2<-p2+theme(legend.position="bottom")+theme(strip.background =element_rect(fill="white", color="white"))
+PCoA_adults<-p2+stat_ellipse(aes(group = treatment),size=1.5, alpha=0.5)+ theme(panel.spacing.x=unit(5.5, "lines"))+ theme(axis.title.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 20)))+ theme(legend.text = element_text(face="bold", size=17,color="gray9"))
+ggsave("microbiome/combined_runs/figures/PCoA_adults.png", height = 5.5, width = 8)
+```
+## Beta diversity stats
+
+#### test difference between treatments and hive control
+```{r}
+compare=ps_run_one_adults2
+test2 <- transform_sample_counts(compare, function(OTU) {OTU / sum(OTU)})
+test2 <- prune_taxa(taxa_sums(test2) > 0, test2)
+
+df = as(sample_data(test2), "data.frame")
+set.seed(53)
+d = phyloseq::distance(test2, "bray")
+adonis = adonis(d ~ treatment, df, perm=999)
+adonis
+
+#testing interaction between treatment and cage
+set.seed(53)
+d = phyloseq::distance(test2, "bray")
+adonis = adonis(d ~ treatment*cage, df,perm=999)
+adonis
+
+subs <- subset_samples(test2, treatment %in% c("Hive", "C"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs1 <- subset_samples(test2, treatment %in% c("Hive", "AG"))
+subs1 <- prune_taxa(taxa_sums(subs1) > 0, subs1)
+metadata <- as(sample_data(subs1), "data.frame")
+adonis(distance(subs1, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs2 <- subset_samples(test2, treatment %in% c("Hive", "LG"))
+subs2 <- prune_taxa(taxa_sums(subs2) > 0, subs2)
+metadata <- as(sample_data(subs2), "data.frame")
+adonis(distance(subs2, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs <- subset_samples(test2, treatment %in% c("Hive", "BB"))
+subs <- prune_taxa(taxa_sums(subs) > 0, subs)
+metadata <- as(sample_data(subs), "data.frame")
+adonis(distance(subs, method="bray") ~ treatment,data = metadata, perm=999)
+
+subs3 <- subset_samples(test2, treatment %in% c("Hive", "LGBB"))
+subs3 <- prune_taxa(taxa_sums(subs3) > 0, subs3)
+metadata <- as(sample_data(subs3), "data.frame")
+adonis(distance(subs3, method="bray") ~ treatment,data = metadata, perm=999)
+
+pvalues<-c(0.42,0.3,0.47,0.11,0.62)
+p.adjust(pvalues,method="fdr")
+```
+
+
+### abundance all main taxa
+
+### Core taxa abundance
+
+```{r total abundance}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- tax_glom(ps3, taxrank = 'Genus')
+psOrd3 = subset_taxa(ps3, Genus=="Lactobacillus" | Genus=="Snodgrassella" | Genus=="Gilliamella" | Genus=="Bifidobacterium" | Genus=="Bombella" | Genus=="Commensalibacter" | Genus=="Frischella"| Genus=="Fructobacillus")
+
+#Melt and plot
+melt<-psmelt(psOrd3)
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(melt, treatment=factor(treatment,levels=neworder3)),treatment)
+
+a_mean <- melt4 %>% 
+  group_by(treatment,Genus) %>% 
+  summarize(mean_val = mean(Abundance))
+a_mean2<-subset(a_mean, treatment =="Hive")
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance)) +
+  geom_boxplot(aes(fill=Genus),alpha=0.5,lwd=0.7, position = position_dodge(width = 0.3), width=0.45,outlier.shape = NA) + geom_jitter(aes(color = Genus), height = 0, width = .1)+geom_hline(data= a_mean2, aes(yintercept=mean_val), width=5,size=1,linetype="dashed")+
+  labs(x = "", y = "Abundance\n")+
+  facet_grid(Genus~., scales = "free")+theme_bw()+
+  geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=1.1,map_signif_level=sigFunc, textsize=9, test = wilcox.test,step_increase = 0.2)
+p<-p+ theme(legend.position="right")+ylab("Total abundance")
+p<-p+ theme(legend.text=element_text(size=29, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.9, "cm"))+theme(legend.title = element_blank())
+abu<-p +theme(strip.text.x = element_text(size=25,face="bold",color = "grey 35"))+theme(strip.background =element_rect(fill="white", color="white"))
+taxa_adults<-abu+theme(axis.title.y = element_text(size=25, face="bold"))+theme(axis.text.y = element_text(size=20, face="bold"))+theme(axis.text.x = element_text(size=25, angle=90,face="bold"))+theme(axis.title.x = element_blank())+ theme(strip.text.y = element_blank())
+ggsave("microbiome/combined_runs/figures/core_total_abundance.png", height = 18, width = 16)
+``` 
+
+```{r, dabest_abundance_init}
+#devtools::install_github("mikheyev/dabestr")
+library(dabestr)
+microbeColors <- function (n) {
+  mcols <- c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum")
+  return(mcols[4 %/% n])
+}
+```
+
+#### Lactobacillus as example -> same for Bifidobacterium, Frischella, Snodgrassella, Gilliamella, Bombella, Commensalibacter
+```{r, dabest_abundance_Lactobacillus}
+ps3 <-ps_run_one_adults2
+set.seed(42)
+ps3 <- rarefy_even_depth(ps3,sample.size=39678, replace=FALSE, rngseed = 1) 
+
+sample_data(ps3)$treatment<-factor(sample_data(ps3)$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+levels(sample_data(ps3)$treatment)
+ps3 <- tax_glom(ps3, taxrank = 'Genus')
+psord = subset_taxa(ps3, Genus=="Lactobacillus") 
+melt<-psmelt(psord)
+unpaired_mean_diff <- dabestr::dabest(melt, treatment,Abundance,
+                             idx = c("Hive","C","AG","LG","BB","LGBB"),
+                             paired = FALSE)
+unpaired_mean_diff
+mean_diff(unpaired_mean_diff)
+plot(mean_diff(unpaired_mean_diff),rawplot.ylabel ="Abundance",tick.fontsize=16,axes.title.fontsize=18,effsize.ylabel = "Mean diff.", rawplot.markersize = 2)#, colorValues = c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum") <- customizing colors worked before, not anymore
+```
+
+### test spread of variance of groups
+```{r betadisp1}
+set.seed(53)
+test<-ps_run_one_adults2
+test2 <- transform_sample_counts(test, function(OTU) {OTU / sum(OTU)})
+cycle3 <- prune_taxa(taxa_sums(test2) > 0, test2)
+
+#testing treatment
+set.seed(53)
+d_cycle3 = phyloseq::distance(cycle3, "bray")
+df_cycle3 = as(sample_data(cycle3), "data.frame")
+df_cycle3$treatment <- factor(df_cycle3$treatment , levels=c("Hive","C","AG","LG","BB","LGBB"))
+groups <- df_cycle3[["treatment"]]
+beta <- betadisper(d_cycle3, df_cycle3$treatment)
+permutest(beta,pairwise = TRUE, permutations = 999)
+anova(betadisper(d_cycle3, groups))
+mod.HSD <- TukeyHSD(beta,conf.level = 0.95)
+mod.HSD
+plot(betadisper(d_cycle3, groups),main="Adults",lwd=2, label = TRUE,label.cex = 0.7,col=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+boxplot(betadisper(d_cycle3, groups),main="Adults",border=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),xlab="")
+```
+
+
+
+
+# Taxonomy plots and stats
+
+### make taxa plot with all samples - larvae and adults
+
+
+### main manuscript figure (adults and larva day six)
+```{r merge_taxa}
+ps_larvae_merge2<-subset_samples(ps_run_two_larvae2, treatment_day == "six")
+ps_adults_merge<-ps_run_one_adults2
+
+ps_both<-merge_phyloseq(ps_adults_merge, ps_larvae_merge2)
+ps_both <- prune_taxa(taxa_sums(ps_both) > 0, ps_both)
+
+library(pals)
+tax <-ps_both
+ps_bdiv2 <- transform_sample_counts(tax, function(OTU) {OTU / sum(OTU)})
+tax_all2<- ps_bdiv2
+ps_pd2 <- tax_glom(tax_all2, taxrank = 'Genus')
+
+low1pc_reads <- max(taxa_sums(ps_pd2)) * 1 / 100
+low1pc_indices <- which(taxa_sums(ps_pd2) < low1pc_reads)
+length(low1pc_indices)
+taxa_names(ps_pd2)[low1pc_indices[1]] <- "other"
+taxa3 <- merge_taxa(ps_pd2, low1pc_indices, "other")
+tax_table(taxa3)["other", ] <- c("other")
+
+#build a custom color palette for phyloseq object
+getPalette = colorRampPalette(brewer.pal(10, "Paired"))
+speciesList = unique(tax_table(taxa3)[,"Genus"])
+speciesPalette = getPalette(length(speciesList))
+names(speciesPalette) = speciesList
+
+ps_df <- psmelt(taxa3)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment,Genus,source) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment,source) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("Hive","C","AG","LG","BB","LGBB")
+change <- c("Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment=factor(treatment,levels=neworder,labels=change)),treatment)
+
+neworder2 <- c("larvae","adults")
+ps_df_sum3 <- arrange(transform(ps_df_sum2,source=factor(source,levels=neworder2)),source)
+
+p<-ggplot(data = ps_df_sum3, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=10.5, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.5, "cm"))+theme(legend.title = element_blank())+theme(legend.position="bottom")
+taxa2<-p+theme(axis.title.y = element_text(size=11, face="bold"))+theme(axis.text.y = element_text(size=10, face="bold"))+theme(axis.text.x = element_text(size=7, face="bold",vjust=0.5,angle = 90))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=11, face="bold",vjust = -5))
+taxa2<-taxa2+guides(fill=guide_legend(nrow=3))
+taxa2<-taxa2+facet_grid(~source+treatment, scale='free_x', space = "free_x")
+taxa2<-taxa2+theme(panel.spacing = unit(0.3, "lines"),
+        panel.border = element_rect(color = "grey40", fill = NA, size = 0.5))
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+ggsave("microbiome/combined_runs/figures/merge_taxa.png", height = 4, width = 8)
+```
+
+
+```{r taxa1}
+tax <-ps_both
+ps_bdiv2 <- transform_sample_counts(tax, function(OTU) {OTU / sum(OTU)})
+tax_all2<- ps_bdiv2
+ps_pd2 <- tax_glom(tax_all2, taxrank = 'Genus')
+
+low1pc_reads <- max(taxa_sums(ps_pd2)) * 1 / 100
+low1pc_indices <- which(taxa_sums(ps_pd2) < low1pc_reads)
+length(low1pc_indices)
+taxa_names(ps_pd2)[low1pc_indices[1]] <- "other"
+taxa3 <- merge_taxa(ps_pd2, low1pc_indices, "other")
+tax_table(taxa3)["other", ] <- c("other")
+
+#build a custom color palette for phyloseq object
+getPalette = colorRampPalette(brewer.pal(10, "Paired"))
+speciesList = unique(tax_table(taxa3)[,"Genus"])
+speciesPalette = getPalette(length(speciesList))
+names(speciesPalette) = speciesList
+
+#larva day 6
+
+taxa4 = subset_samples(taxa3, source == "larvae")
+taxa4 <- prune_taxa(taxa_sums(taxa4) > 0, taxa4)
+
+ps_df <- psmelt(taxa4)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("Hive","C","AG","LG","BB","LGBB")
+change <- c("Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment=factor(treatment,levels=neworder,labels=change)),treatment)
+
+p<-ggplot(data = ps_df_sum2, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity",width = .2)+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=10.5, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.5, "cm"))+theme(legend.title = element_blank())+theme(legend.position="bottom")
+taxa2<-p+theme(axis.title.y = element_text(size=11, face="bold"))+theme(axis.text.y = element_text(size=10, face="bold"))+theme(axis.text.x = element_text(size=7, face="bold",vjust=0.5,angle = 90))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=11, face="bold",vjust = -5))
+taxa2<-taxa2+guides(fill=guide_legend(nrow=3))
+taxa2<-taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+#ggsave("microbiome/combined_runs/figures/main_day6.png", height = 3.5, width = 6)
+
+#adults
+
+taxa5 = subset_samples(taxa3, source == "adult")
+taxa5 <- prune_taxa(taxa_sums(taxa5) > 0, taxa5)
+
+ps_df <- psmelt(taxa5)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("Hive","C","AG","LG","BB","LGBB")
+change <- c("Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment=factor(treatment,levels=neworder,labels=change)),treatment)
+
+p<-ggplot(data = ps_df_sum2, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=10.5, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.5, "cm"))+theme(legend.title = element_blank())+theme(legend.position="bottom")
+taxa2<-p+theme(axis.title.y = element_text(size=11, face="bold"))+theme(axis.text.y = element_text(size=10, face="bold"))+theme(axis.text.x = element_text(size=7, face="bold",vjust=0.5,angle = 90))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=11, face="bold",vjust = -5))
+taxa2<-taxa2+guides(fill=guide_legend(nrow=3))
+taxa2<-taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+#ggsave("microbiome/combined_runs/figures/main_adult.png", height = 3.5, width = 6)
+```
+
+
+### taxa plots for supplements
+
+
+```{r color_palette}
+
+tax <-ps_run_two_larvae2
+tax<-subset_samples(tax, source == "larvae")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+ps_bdiv2 <- transform_sample_counts(tax, function(OTU) {OTU / sum(OTU)})
+tax_all2<- ps_bdiv2
+ps_pd2 <- tax_glom(tax_all2, taxrank = 'Genus')
+
+low1pc_reads <- max(taxa_sums(ps_pd2)) * 1 / 50
+low1pc_indices <- which(taxa_sums(ps_pd2) < low1pc_reads)
+length(low1pc_indices)
+taxa_names(ps_pd2)[low1pc_indices[1]] <- "other"
+taxa3 <- merge_taxa(ps_pd2, low1pc_indices, "other")
+tax_table(taxa3)["other", ] <- c("other")
+
+#build a custom color palette for phyloseq object
+getPalette = colorRampPalette(brewer.pal(14, "Paired"))
+speciesList = unique(tax_table(taxa3)[,"Genus"])
+speciesPalette = getPalette(length(speciesList))
+names(speciesPalette) = speciesList
+```
+
+### all time points together larvae
+
+```{r all}
+taxa3.3<-taxa3
+ps_df <- psmelt(taxa3.3)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment2,Genus,treatment_day) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment2,treatment_day) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("start_larvae","Hive","C","AG","LG","BB","LGBB")
+change <- c("start larvae\n  ","Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment2=factor(treatment2,levels=neworder,labels=change)),treatment2)
+
+neworder2 <- c("zero","three","four","six")
+change2 <- c("start","day three","day four","day six")
+ps_df_sum3 <- arrange(transform(ps_df_sum2,treatment_day=factor(treatment_day,levels=neworder2,labels=change2)),treatment_day)
+
+p<-ggplot(data = ps_df_sum3, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=15, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.8, "cm"))+theme(legend.title = element_blank())+theme(legend.position="bottom")
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=12, face="bold",vjust = -5))
+taxa2<-taxa2+guides(fill=guide_legend(nrow=3))
+taxa2<-taxa2+facet_grid(~treatment_day+treatment2, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+ggsave("microbiome/combined_runs/figures/larva_all_three_taxa2.png", height = 5, width = 15)
+```
+
+### all time points individually larvae
+
+```{r zero}
+taxa3.3<-taxa3
+tax<-subset_samples(taxa3.3, treatment_day == "zero")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+ps_df <- psmelt(tax)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment2,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment2) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("start_larvae")
+change <- c("start larvae\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment2=factor(treatment2,levels=neworder,labels=change)),treatment2)
+
+p<-ggplot(data = ps_df_sum2, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity",width = 0.8, preserve = "single")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=15, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.8, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=16, face="bold"))+theme(axis.text.y = element_text(size=15, face="bold"))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=18, face="bold",vjust = -5,colour = "grey35"))
+taxa2<-taxa2+guides(fill=guide_legend(ncol=2))
+taxa2<-taxa2+facet_grid(~treatment2, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+ggsave("microbiome/combined_runs/figures/larva_day_zero.png", height = 4.5, width = 9)
+```
+
+```{r three}
+taxa3.3<-taxa3
+tax<-subset_samples(taxa3.3, treatment_day == "three")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+ps_df <- psmelt(tax)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment2,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment2) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("start_larvae","Hive","C","AG","LG","BB","LGBB")
+change <- c("start larvae\n  ","Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment2=factor(treatment2,levels=neworder,labels=change)),treatment2)
+
+p<-ggplot(data = ps_df_sum2, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity",width = 0.8, preserve = "single")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=15, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.8, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=16, face="bold"))+theme(axis.text.y = element_text(size=15, face="bold"))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=18, face="bold",vjust = -5,colour = "grey35"))
+taxa2<-taxa2+guides(fill=guide_legend(ncol=2))
+taxa2<-taxa2+facet_grid(~treatment2, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+ggsave("microbiome/combined_runs/figures/larva_day_three.png", height = 4.5, width = 16)
+```
+
+```{r four}
+taxa3.3<-taxa3
+tax<-subset_samples(taxa3.3, treatment_day == "four")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+ps_df <- psmelt(tax)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment2,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment2) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("start_larvae","Hive","C","AG","LG","BB","LGBB")
+change <- c("start larvae\n  ","Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment2=factor(treatment2,levels=neworder,labels=change)),treatment2)
+
+p<-ggplot(data = ps_df_sum2, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity",width = 0.8, preserve = "single")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=15, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.8, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=16, face="bold"))+theme(axis.text.y = element_text(size=15, face="bold"))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=18, face="bold",vjust = -5,colour = "grey35"))
+taxa2<-taxa2+guides(fill=guide_legend(ncol=2))
+taxa2<-taxa2+facet_grid(~treatment2, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+ggsave("microbiome/combined_runs/figures/larva_day_four.png", height = 4.5, width = 13)
+```
+
+
+```{r six}
+taxa3.3<-taxa3
+tax<-subset_samples(taxa3.3, treatment_day == "six")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+ps_df <- psmelt(tax)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,treatment2,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample,treatment2) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("start_larvae","Hive","C","AG","LG","BB","LGBB")
+change <- c("start larvae\n  ","Hive\n  ","C\n  ","AG\n  ","LG\n  ","BB\n  ","LGBB\n  ")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment2=factor(treatment2,levels=neworder,labels=change)),treatment2)
+
+p<-ggplot(data = ps_df_sum2, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity",width = 0.8, preserve = "single")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=15, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.8, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=16, face="bold"))+theme(axis.text.y = element_text(size=15, face="bold"))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))+theme(strip.text = element_text(size=18, face="bold",vjust = -5,colour = "grey35"))
+taxa2<-taxa2+guides(fill=guide_legend(ncol=2))
+taxa2<-taxa2+facet_grid(~treatment2, scale='free_x', space = "free_x")
+
+taxa_larva_adults<-taxa2+theme(axis.text.x = element_blank(), axis.ticks.x=element_blank())
+#taxa2+facet_grid(~treatment, scale='free_x', space = "free_x")
+ggsave("microbiome/combined_runs/figures/larva_day_six.png", height = 4.5, width = 16)
+```
+
+```{r other_taxa_plot}
+
+tax6 <-ps_run_two_larvae
+tax = subset_samples(tax6, treatment == "AG_inoculum"|treatment =="LG_inoculum"|treatment=="BB_food")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+
+ps_bdiv2 <- transform_sample_counts(tax, function(OTU) {OTU / sum(OTU)})
+tax_all2<- ps_bdiv2
+ps_pd2 <- tax_glom(tax_all2, taxrank = 'Genus')
+
+low1pc_reads <- max(taxa_sums(ps_pd2)) * 1 / 50
+low1pc_indices <- which(taxa_sums(ps_pd2) < low1pc_reads)
+length(low1pc_indices)
+taxa_names(ps_pd2)[low1pc_indices[1]] <- "other"
+taxa3 <- merge_taxa(ps_pd2, low1pc_indices, "other")
+tax_table(taxa3)["other", ] <- c("other")
+
+#build a custom color palette for phyloseq object
+getPalette = colorRampPalette(brewer.pal(14, "Paired"))
+speciesList = unique(tax_table(taxa3)[,"Genus"])
+speciesPalette = getPalette(length(speciesList))
+names(speciesPalette) = speciesList
+
+ps_df <- psmelt(taxa3)
+ps_df_sum <- ps_df %>%
+  group_by(treatment2,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(treatment2) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+neworder <- c("AG_inoculum","BB_food","LG_inoculum")
+change <- c("AG\ninoculum","BB\nfood","LG\ninoculum")
+ps_df_sum2 <- arrange(transform(ps_df_sum,treatment2=factor(treatment2,levels=neworder,labels=change)),treatment2)
+
+p<-ggplot(data = ps_df_sum2, aes(x = treatment2, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=10, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),
+                                                     legend.key.size = unit(0.6, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=12, face="bold"))+theme(axis.text.y = element_text(size=11, face="bold"))+theme(axis.text.x = element_text(size=11, face="bold",vjust=0.5))+theme(axis.title.x = element_blank())+guides(fill=guide_legend(ncol=2))
+ggsave("microbiome/combined_runs/figures/taxa_inoculum2.png", height = 3.5, width = 5.5)
+```
+
+```{r negative}
+
+tax <-ps_run_two_larvae
+tax = subset_samples(tax, treatment2 == "negative")
+tax <- prune_taxa(taxa_sums(tax) > 0, tax)
+
+ps_bdiv2 <- transform_sample_counts(tax, function(OTU) {OTU / sum(OTU)})
+tax_all2<- ps_bdiv2
+ps_pd2 <- tax_glom(tax_all2, taxrank = 'Genus')
+
+low1pc_reads <- max(taxa_sums(ps_pd2)) * 1 / 50
+low1pc_indices <- which(taxa_sums(ps_pd2) < low1pc_reads)
+length(low1pc_indices)
+taxa_names(ps_pd2)[low1pc_indices[1]] <- "other"
+taxa3 <- merge_taxa(ps_pd2, low1pc_indices, "other")
+tax_table(taxa3)["other", ] <- c("other")
+
+#build a custom color palette for phyloseq object
+getPalette = colorRampPalette(brewer.pal(14, "Paired"))
+speciesList = unique(tax_table(taxa3)[,"Genus"])
+speciesPalette = getPalette(length(speciesList))
+names(speciesPalette) = speciesList
+
+ps_df <- psmelt(taxa3)
+ps_df_sum <- ps_df %>%
+  group_by(Sample,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(Sample) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+p<-ggplot(data = ps_df_sum, aes(x = Sample, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+p<-p+ theme(legend.text=element_text(size=9, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),
+                                                     legend.key.size = unit(0.6, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=12, face="bold"))+theme(axis.text.y = element_text(size=11, face="bold"))+theme(axis.text.x = element_text(size=11, face="bold",vjust=0.5))+theme(axis.title.x = element_blank())+guides(fill=guide_legend(ncol=2))
+ggsave("microbiome/combined_runs/figures/negative_controls_tax3.png", height = 3, width = 6)
+```
+
+
+```{r inoculum_adult_pool}
+tax <-ps_run_one_adults
+tax = subset_samples(tax, treatment2 == "NG-mix")
+
+ps_bdiv2 <- transform_sample_counts(tax, function(OTU) {OTU / sum(OTU)})
+tax_all2<- ps_bdiv2
+ps_pd2 <- tax_glom(tax_all2, taxrank = 'Genus')
+
+low1pc_reads <- max(taxa_sums(ps_pd2)) * 1 / 100
+low1pc_indices <- which(taxa_sums(ps_pd2) < low1pc_reads)
+length(low1pc_indices)
+taxa_names(ps_pd2)[low1pc_indices[1]] <- "other"
+taxa3 <- merge_taxa(ps_pd2, low1pc_indices, "other")
+tax_table(taxa3)["other", ] <- c("other")
+
+#build a custom color palette for phyloseq object
+getPalette = colorRampPalette(brewer.pal(9, "Paired"))
+speciesList = unique(tax_table(taxa3)[,"Genus"])
+speciesPalette = getPalette(length(speciesList))
+names(speciesPalette) = speciesList
+
+ps_df <- psmelt(taxa3)
+ps_df_sum <- ps_df %>%
+  group_by(treatment,Genus) %>%
+  summarise(Abundance = mean(Abundance)) %>%
+  group_by(treatment) %>%
+  mutate(relative_abundance = Abundance / sum(Abundance)) %>%
+  ungroup() %>%
+  mutate(Genus = fct_reorder(Genus, Abundance, .fun = sum, .desc = TRUE))
+levels(ps_df_sum$Genus)
+
+p<-ggplot(data = ps_df_sum, aes(x = treatment, y = relative_abundance, fill = Genus)) +
+  geom_bar(stat = "identity")+ scale_fill_manual(values= speciesPalette)+ scale_y_continuous(expand = c(0,0))+ylab("relative abundance")
+#p<-p+ theme(legend.position="bottom")
+p<-p+ theme(legend.text=element_text(size=10.5, face = "italic"))+theme(legend.key = element_rect(color = NA, fill = NA),legend.key.size = unit(0.5, "cm"))+theme(legend.title = element_blank())
+taxa2<-p+theme(axis.title.y = element_text(size=12, face="bold"))+theme(axis.text.y = element_text(size=11, face="bold"))+theme(axis.text.x = element_text(size=11, face="bold",vjust=0.5))+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))#+theme(axis.text.x =element_blank())
+#taxa2+guides(fill=guide_legend(nrow=3))  
+ggsave("microbiome/combined_runs/figures/adult_taxa_inoculum.png", height = 3, width = 3.4)
+```
+
+
+### ASV adult microbiome
+
+### have a look on most abundant ASVs in the core taxa
+
+```{r Gilliamella_ASV}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Gilliamella")
+ps2.3 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+#ps2.4 <- subset_taxa(ps2.3, ASV !="ASV0068")
+
+ps2m <- psmelt(ps2.3)
+
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=1.1,map_signif_level=sigFunc, textsize=9, test = wilcox.test)
+p<-p + facet_wrap(~ASV, scales="free_y",nrow=1)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Gilliamella")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_ASV_Gilliamella.png", height = 3, width = 12.5)
+```
+
+
+```{r Bifidobacterium_ASV}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Bifidobacterium")
+ps2.3 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+#ps2.4 <- subset_taxa(ps2.3, ASV !="ASV0068")
+ps2m <- psmelt(ps2.3)
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=0.8,map_signif_level=sigFunc, textsize=7, test = wilcox.test,step_increase = 0.05)
+p<-p + facet_wrap(~ASV, scales="free_y",nrow=1)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Bifidobacterium")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_ASV_Bifidobacterium.png", height = 3, width = 8.1)
+```
+
+
+```{r Snodgrassella_ASV}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Snodgrassella")
+ps2.3 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+#ps2.4 <- subset_taxa(ps2.3, ASV !="ASV0068")
+
+ps2m <- psmelt(ps2.3)
+
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=1.1,map_signif_level=sigFunc, textsize=9, test = wilcox.test)
+p<-p + facet_wrap(~ASV, scales="free_y",nrow=1)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Snodgrassella")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_ASV_Snodgrassella.png", height = 3, width = 10)
+```
+
+
+```{r Frischella_ASV}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Frischella")
+ps2.3 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+#ps2.4 <- subset_taxa(ps2.3, ASV !="ASV0068")
+
+ps2m <- psmelt(ps2.3)
+
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=1.1,map_signif_level=sigFunc, textsize=9, test = wilcox.test)
+p<-p + facet_wrap(~ASV, scales="free_y",nrow=1)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Frischella")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_ASV_Frischella.png", height = 3, width = 10)
+```
+
+```{r Bombella_ASV}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Bombella")
+ps2.3 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+#ps2.4 <- subset_taxa(ps2.3, ASV !="ASV0068")
+
+ps2m <- psmelt(ps2.3)
+
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=0.9,map_signif_level=sigFunc, textsize=7, test = wilcox.test)
+p<-p + facet_wrap(~ASV, scales="free_y",nrow=1)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Bombella")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_ASV_Bombella.png", height = 3, width = 5.7)
+```
+
+```{r Lactobacillus_species}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Lactobacillus")
+ps3 <- subset_taxa(ps3, Species !="not_available")
+ps2.3 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+
+ps2m <- psmelt(ps2.3)
+
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+neworder4 <- c("Lactobacillus apis","Lactobacillus helsingborgensis","Lactobacillus kullabergensis","Lactobacillus kunkeei","NA")
+change4 <- c("L. apis","L. helsingborgensis","L. kullabergensis","L. kunkeei","not available")
+melt4 <- arrange(transform(melt4, Species=factor(Species,levels=neworder4,labels=change4)),Species)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=1.1,map_signif_level=sigFunc, textsize=9, test = wilcox.test)
+p<-p + facet_wrap(~Species, scales="free_y",nrow=1)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Lactobacillus species")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_species_Lactobacillus2.png", height = 3, width = 12.5)
+```
+
+
+```{r Lactobacillus_NA}
+ps2 <-ps_run_one_adults2
+ps2 <- rarefy_even_depth(ps2,sample.size=39678, replace=FALSE, rngseed = 1) 
+ps3 <- prune_taxa(taxa_sums(ps2) > 0, ps2)
+ps3 <- subset_taxa(ps3, Genus =="Lactobacillus")
+ps3 <- subset_taxa(ps3, Species =="not_available")
+ps4 <- prune_taxa(taxa_sums(ps3) > 1000, ps3)
+
+#ps2.4 <- subset_taxa(ps2.3, ASV !="ASV0068")
+
+ps2m <- psmelt(ps4)
+
+neworder3 <- c("Hive","C","AG","LG","BB","LGBB")
+melt4 <- arrange(transform(ps2m, treatment=factor(treatment,levels=neworder3)),treatment)
+
+sigFunc = function(x){
+  if(x < 0.001){"***"} 
+  else if(x < 0.01){"**"}
+  else if(x < 0.05){"*"}
+  else{NA}}
+
+p<-ggplot(data = melt4, aes(x = treatment, y = Abundance, colour = treatment)) +
+  geom_point(position = position_jitter())+geom_boxplot(show.legend=FALSE, alpha = 0,colour="grey53",size=0.7)+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=7,alpha=0.5)))+theme_bw()+geom_signif(comparisons=list(c("Hive", "C"), c("Hive", "AG"),c("Hive", "LG"),c("Hive", "BB"),c("Hive", "LGBB")),tip_length = 0.03,vjust=1.3, color="grey20", size=1.1,map_signif_level=sigFunc, textsize=9, test = wilcox.test)
+p<-p + facet_wrap(~ASV, scales="free_y",nrow=4)
+p<-p + theme(strip.text = element_text(size=13,face="bold",color="grey40"))
+taxa2<-p+theme(axis.title.y = element_text(size=13, face="bold"))+theme(axis.text.y = element_text(size=12, face="bold"))+theme(axis.text.x = element_blank())+theme(axis.title.x = element_blank())+theme(strip.background =element_rect(fill="white", color="white"))
+taxa2<- taxa2 + theme(legend.title = element_blank(),legend.background = element_blank(),legend.key = element_blank(),legend.text = element_text(size=14, face="italic"))
+taxa2+ggtitle("Lactobacillus NA")+theme(plot.title = element_text(hjust = 0.5, size=15, face="bold.italic",colour = "darkolivegreen"))+theme(axis.ticks.x=element_blank())
+ggsave("microbiome/combined_runs/figures/ASV/adult_NA_Lactobacillus2.png", height = 11, width = 12.5)
+```
+
+
+
+
+
+
+# qPCR plots and statistics
+
+#### 16S copy number and Actin as housekeeping control genes were quantified in adult and larva samples
+
+```{r qpcr_setup}
+library(rstatix)
+library(broom)
+library(olsrr)
+```
+
+```{r adults_load_normalized}
+
+adults_qPCR<- read.table("qPCR/data_files/adults_qPCR_final.txt", header=TRUE)
+all_bee<-subset(adults_qPCR, treatment != "Nurse")
+all_bee <- droplevels(all_bee)
+all_bee$treatment = factor(all_bee$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+###16S copy number per bee
+
+p<-ggerrorplot(all_bee, x = "treatment", y = "normalized_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("normalized 16S copies per bee")
+p<-p+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+
+p<-p+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("qPCR/plots2/adults_total_16S_select_per_bee_normalized2.png", height = 3.5, width = 6.5)
+```
+
+#### Pairwise comparisons
+```{r stat}
+AG<-subset(adults_qPCR, treatment == "AG")
+BB<-subset(adults_qPCR, treatment == "BB")
+C<-subset(adults_qPCR, treatment == "C")
+LG<-subset(adults_qPCR, treatment == "LG")
+LGBB<-subset(adults_qPCR, treatment == "LGBB")
+Hive<-subset(adults_qPCR, treatment == "Hive")
+
+wilcox.test(AG$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(BB$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(C$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(LG$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(LGBB$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+
+pvalues <- c(0.083,0.49,0.81,0.017,0.78)
+p.adjust(pvalues,method="fdr")
+#0.21 0.81 0.81 0.09 0.81
+```
+
+```{r ancova_adult}
+
+ggplot(all_bee, aes(y = copies_16S_per_bee, x = Actin_copies_per_bee)) + geom_point() + geom_smooth(method = "lm")
+
+model = lm(copies_16S_per_bee ~ Actin_copies_per_bee+treatment,data = all_bee)
+
+#code to create the density plot of residuals
+plot(density(model$residuals))
+
+#code to create a Q-Q plot
+qqnorm(model$residuals)
+qqline(model$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+ols_test_normality(model)
+
+#code to create a fitted values vs residuals plot
+plot(model$residuals~model$fitted.values)
+lines(lowess(model$fitted.values,model$residuals), col="blue")
+text(model$fitted.values, model$residuals, row.names(all_bee), cex=0.6, pos=4, col="red")
+
+# we should transform data
+log_16S = log(all_bee$copies_16S_per_bee)
+
+### set Hive control as reference treatment
+levels(all_bee$treatment)
+
+all_bee$treatment <- relevel(all_bee$treatment, ref="Hive")
+levels(all_bee$treatment)
+
+#code to run the ancova test on the transformed data
+ancova<-lm(log_16S~Actin_copies_per_bee+treatment, data=all_bee)
+
+#code to create the density plot of residuals
+plot(density(ancova$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova$residuals)
+qqline(ancova$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova$residuals~ancova$fitted.values)
+lines(lowess(ancova$fitted.values,ancova$residuals), col="blue")
+text(ancova$fitted.values, ancova$residuals, row.names(all_bee), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova,type="3")
+```
+
+
+```{r emmeans}
+
+model.metrics <- augment(ancova) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- all_bee %>% anova_test(log(copies_16S_per_bee)~Actin_copies_per_bee+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc <- all_bee %>% mutate(log16S = log(copies_16S_per_bee)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = Actin_copies_per_bee,
+    p.adjust.method = "fdr")
+pwc
+
+pwc <- pwc %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+adult_qpcr<-ggline(get_emmeans(pwc), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))+coord_cartesian(ylim = c(16.5, 21))
+ggsave("qPCR/plots/emmeans_adults.png", height = 3.5, width = 6.5)
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(0.68,0.32,0.05,0.11,0.71)
+p.adjust(pvalues,method="fdr")
+#0.71 0.53 0.25 0.28 0.71
+```
+
+
+## Larva qPCR
+
+### 16S copies/sample 
+```{r larva}
+
+all_larva<- read.table("qPCR/data_files/qPCR_data_for_R_larva_final.txt", header=TRUE)
+
+all_larva$date = factor(all_larva$date,levels=c("start","day_three","day_six"), labels=c("start","day three","day six"))
+
+## per sample
+all_three<-subset(all_larva, date == "day three")
+all_three$treatment = factor(all_three$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+p1<-ggerrorplot(all_three,x = "treatment", y = "normalized_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("normalized 16S copies")+ylim(0, 5700000)
+p1<-p1+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+p1<-p1+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p1+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("qPCR/plots2/larva_16S_day_three_per_sample2.png", height = 3.5, width =6.5)
+
+all_six<-subset(all_larva, date == "day six")
+all_six$treatment = factor(all_six$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+p2<-ggerrorplot(all_six,x = "treatment", y = "normalized_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("normalized 16S copies per sample")#+ylim(0, 600000000)
+p2<-p2+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_blank())
+p2<-p2+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p2+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("qPCR/plots2/larva_total_16S_day_six_per_sample2.png", height = 3.5, width = 6.5)
+
+library(egg) #helps to correctly align the plots
+
+figure_1 <- "qPCR/plots2/combined_abundance_per_sample_larva2.png"
+png(figure_1, 11 * plot_res, 3 * plot_res, res = plot_res)
+ggarrange(p1,p2, nrow=1,labels = c("A", "B"))
+invisible(dev.off())
+knitr::include_graphics(figure_1, dpi = plot_res)
+```
+
+
+#### Pairwise comparisons
+```{r stat2}
+
+AG<-subset(all_three, treatment == "AG")
+BB<-subset(all_three, treatment == "BB")
+C<-subset(all_three, treatment == "C")
+LG<-subset(all_three, treatment == "LG")
+LGBB<-subset(all_three, treatment == "LGBB")
+Hive<-subset(all_three, treatment == "Hive")
+
+wilcox.test(AG$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(BB$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(C$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(LG$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+wilcox.test(LGBB$normalized_16S_per_sample,Hive$normalized_16S_per_sample)
+
+pvalues <- c(0.008,0.1,0.03,0.008,0.008)
+p.adjust(pvalues,method="fdr")
+
+AG2<-subset(all_six, treatment == "AG")
+BB2<-subset(all_six, treatment == "BB")
+C2<-subset(all_six, treatment == "C")
+LG2<-subset(all_six, treatment == "LG")
+LGBB2<-subset(all_six, treatment == "LGBB")
+Hive2<-subset(all_six, treatment == "Hive")
+
+wilcox.test(AG2$normalized_16S_per_sample,Hive2$normalized_16S_per_sample)
+wilcox.test(BB2$normalized_16S_per_sample,Hive2$normalized_16S_per_sample)
+wilcox.test(C2$normalized_16S_per_sample,Hive2$normalized_16S_per_sample)
+wilcox.test(LG2$normalized_16S_per_sample,Hive2$normalized_16S_per_sample)
+wilcox.test(LGBB2$normalized_16S_per_sample,Hive2$normalized_16S_per_sample)
+
+pvalues <- c(0.26,0.002,0.004,0.04,0.002)
+p.adjust(pvalues,method="fdr")
+```
+
+```{r larva_log}
+
+all_larva<- read.table("qPCR/data_files/qPCR_data_for_R_larva_final.txt", header=TRUE)
+
+all_larva$date = factor(all_larva$date,levels=c("start","day_three","day_six"), labels=c("start","day three","day six"))
+
+## per sample
+all_three<-subset(all_larva, date == "day three")
+all_three$treatment = factor(all_three$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+p1<-ggerrorplot(all_three,x = "treatment", y = "log_normalized_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("log normalized 16S/sample")#+ylim(0, 5700000)
+p1<-p1+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=13))
+p1.1<-p1+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p1.1+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("qPCR/plots2/log_larva_16S_day_three_per_sample.png", height = 3.5, width =6.5)
+
+all_six<-subset(all_larva, date == "day six")
+all_six$treatment = factor(all_six$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+
+p2<-ggerrorplot(all_six,x = "treatment", y = "log_normalized_16S_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "gray35")+theme(legend.position = "none")+theme(legend.position = "none")+theme(axis.title.x = element_blank())+ ylab("log normalized 16S copies/sample")
+p2<-p2+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_blank())
+p2.1<-p2+ geom_jitter(position=position_jitter(0.1), alpha=0.7,size=2.1,aes(colour=treatment))
+p2.1+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))
+ggsave("qPCR/plots2/log_larva_total_16S_day_six_per_sample.png", height = 3.5, width = 6.5)
+
+library(egg) #helps to correctly align the plots
+
+figure_1 <- "qPCR/plots2/log_combined_abundance_per_sample_larva.png"
+png(figure_1, 11 * plot_res, 3 * plot_res, res = plot_res)
+ggarrange(p1.1,p2.1, nrow=1,labels = c("A","B"))
+invisible(dev.off())
+knitr::include_graphics(figure_1, dpi = plot_res)
+```
+
+```{r ancova_larva}
+
+ggplot(all_six, aes(y = copies_16S_per_sample, x = Actin_copies_per_sample)) + geom_point() + geom_smooth(method = "lm")
+
+model2 = lm(copies_16S_per_sample ~ Actin_copies_per_sample+treatment,data = all_six)
+
+#code to create the density plot of residuals
+plot(density(model2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(model2$residuals)
+qqline(model2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+ols_test_normality(model2)
+
+#code to create a fitted values vs residuals plot
+plot(model2$residuals~model2$fitted.values)
+lines(lowess(model2$fitted.values,model2$residuals), col="blue")
+text(model2$fitted.values, model2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+# we should transform data
+log_16S = log(all_six$copies_16S_per_sample)
+
+### set Hive control as reference treatment
+levels(all_six$treatment)
+
+all_six$treatment <- relevel(all_six$treatment, ref="Hive")
+levels(all_six$treatment)
+
+#code to run the ancova test on the transformed data
+ancova2<-lm(log_16S~Actin_copies_per_sample+treatment, data=all_six)
+
+#code to create the density plot of residuals
+plot(density(ancova2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova2$residuals)
+qqline(ancova2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova2$residuals~ancova2$fitted.values)
+lines(lowess(ancova2$fitted.values,ancova2$residuals), col="blue")
+text(ancova2$fitted.values, ancova2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova2,type="3")
+```
+
+
+```{r emmeans_day_six}
+model.metrics <- augment(ancova2) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- all_six %>% anova_test(log(copies_16S_per_sample)~Actin_copies_per_sample+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc2 <- all_six %>% mutate(log16S = log(copies_16S_per_sample)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = Actin_copies_per_sample,
+    p.adjust.method = "fdr")
+pwc2
+
+pwc2 <- pwc2 %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+larva_qpcr<-ggline(get_emmeans(pwc2), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935", "#D45E79","cornflowerblue","plum"))+coord_cartesian(ylim = c(10.5, 22.5))
+ggsave("qPCR/plots/emmeans_larva_day_six.png", height = 3.5, width = 6.5)
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(2.185408e-13,0.37,0.08,2.480580e-10,0.0029)
+p.adjust(pvalues,method="fdr")
+#<0.001 0.37 0.1 <0.001 0.005
+```
+
+```{r day_three}
+## per sample
+all_three<-subset(all_larva, date == "day three")
+all_three$treatment = factor(all_three$treatment,levels=c("Hive","C","AG","LG","BB","LGBB"))
+# we should transform data
+log_16S = log(all_three$copies_16S_per_sample)
+
+### set Hive control as reference treatment
+levels(all_three$treatment)
+
+all_three$treatment <- relevel(all_three$treatment, ref="Hive")
+levels(all_three$treatment)
+
+#code to run the ancova test on the transformed data
+ancova2<-lm(log_16S~Actin_copies_per_sample+treatment, data=all_three)
+
+#code to create the density plot of residuals
+plot(density(ancova2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova2$residuals)
+qqline(ancova2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova2$residuals~ancova2$fitted.values)
+lines(lowess(ancova2$fitted.values,ancova2$residuals), col="blue")
+text(ancova2$fitted.values, ancova2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova2,type="3")
+```
+
+
+```{r emmeans_day_three}
+
+# Inspect the model diagnostic metrics
+model.metrics <- augment(ancova2) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- all_three %>% anova_test(log(copies_16S_per_sample)~Actin_copies_per_sample+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc2 <- all_three %>% mutate(log16S = log(copies_16S_per_sample)) %>%emmeans_test(
+    log16S~treatment, covariate = Actin_copies_per_sample,
+    p.adjust.method = "fdr")
+pwc2
+pwc2 <- pwc2 %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+ggline(get_emmeans(pwc2), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+scale_color_manual(values=c("#55596a", "#6ebe9f","#f3a935","#D45E79","cornflowerblue","plum"))+coord_cartesian(ylim = c(9,17))
+
+ggsave("qPCR/plots/emmeans_larva_day_three.png", height = 3.5, width = 6.5)
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(0.07,0.00000035,0.0000000063,0.074,0.0000000013)
+p.adjust(pvalues,method="fdr")
+#0.074 <0.001 <0.001 0.074 <0.001
+```
+
+
+## DNA vs RNA comparison across some larva samples
+
+## normalized qPCR (16S copies divided by Actin copies (per ng). Then multiplied by dilution and ng in original sample and multiplied by median of Actin copies across the samples)
+
+```{r DNA_vs_RNA_larva_day3}
+
+compare3<- read.table("qPCR/data_files/qPCR_data_larva_RNA_and_DNA_day_3_normalized_final.txt", header=TRUE)
+compare3$treatment <- factor(compare3$treatment, levels = c("Hive","C","BB","LG"))
+
+p<-ggerrorplot(compare3,x = "treatment", y = "log_normalized_16S_copies_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "type",position = position_dodge(0.4))+theme(legend.title = element_blank())+theme(axis.title.x = element_blank())+ ylab("Log 16S copies per sample")+scale_color_manual(values=c("#55596a", "#6ebe9f"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=1.9)))+theme(legend.text = element_text(size=15, face="bold"))
+p<-p+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+p4<-p+ geom_jitter(position=position_jitter(0.2), alpha=0.7,size=2.1,aes(colour=type))+theme(legend.position='right')+ theme(legend.key.size = unit(1.5, 'lines'))
+
+ggsave("qPCR/plots2/DNA_RNA_larva_16S_day3_log.png", height = 4, width = 7)
+```
+
+```{r statsDNA_vs_RNA_larva3}
+## compare RNA and DNA qPCR results for each treatment. copy number per sample are chosen
+Hive<-subset(compare3, treatment_type == "Hive_RNA")
+Hive2<-subset(compare3, treatment_type == "Hive_DNA")
+C<-subset(compare3, treatment_type == "C_RNA")
+C2<-subset(compare3, treatment_type == "C_DNA")
+BB<-subset(compare3, treatment_type == "BB_RNA")
+BB2<-subset(compare3, treatment_type == "BB_DNA")
+LG<-subset(compare3, treatment_type == "LG_RNA")
+LG2<-subset(compare3, treatment_type == "LG_DNA")
+
+
+wilcox.test(Hive$normalized_16S_copies_per_sample,Hive2$normalized_16S_copies_per_sample,paired = T)
+wilcox.test(C$normalized_16S_copies_per_sample,C2$normalized_16S_copies_per_sample,paired = T)
+wilcox.test(BB$normalized_16S_copies_per_sample,BB2$normalized_16S_copies_per_sample,paired = T)
+wilcox.test(LG$normalized_16S_copies_per_sample,LG2$normalized_16S_copies_per_sample,paired = T)
+
+
+
+wilcox.test(Hive$log_normalized_16S_copies_per_sample,Hive2$log_normalized_16S_copies_per_sample,paired = T)
+wilcox.test(C$log_normalized_16S_copies_per_sample,C2$log_normalized_16S_copies_per_sample,paired = T)
+wilcox.test(BB$log_normalized_16S_copies_per_sample,BB2$log_normalized_16S_copies_per_sample,paired = T)
+wilcox.test(LG$log_normalized_16S_copies_per_sample,LG2$log_normalized_16S_copies_per_sample,paired = T)
+```
+
+```{r DNA_vs_RNA_larva_day6}
+
+compare2<- read.table("qPCR/data_files/qPCR_data_larva_RNA_and_DNA_day6_normalized_final.txt", header=TRUE)
+compare2$treatment <- factor(compare2$treatment, levels = c("Hive","C","BB","LG"))
+
+p<-ggerrorplot(compare2,x = "treatment", y = "log_normalized_16S_copies_per_sample",desc_stat = "mean_se",error.plot = "errorbar",add ="mean",size=1.1,width=0.4,color = "type",position = position_dodge(0.4))+theme(legend.title = element_blank())+theme(axis.title.x = element_blank())+ ylab("Log 16S copies per sample")+scale_color_manual(values=c("#55596a", "#6ebe9f"),guide = guide_legend(override.aes = list(shape = c(rep(15, 2)),size=1.9)))+theme(legend.text = element_text(size=15, face="bold"))
+p<-p+ theme(axis.text.x = element_text(face="bold", size=15))+ theme(axis.text.y = element_text(face="bold", size=12))+theme(axis.title.y = element_text(face="bold", size=14))
+p4<-p+ geom_jitter(position=position_jitter(0.2), alpha=0.7,size=2.1,aes(colour=type))+theme(legend.position='right')+ theme(legend.key.size = unit(1.5, 'lines'))
+
+ggsave("qPCR/plots2/DNA_RNA_larva_16S_day6_log.png", height = 4, width = 7)
+```
+
+
+```{r statsDNA_vs_RNA_larva}
+## compare RNA and DNA qPCR results for each treatment. copy number per sample are chosen
+
+Hive<-subset(compare2, treatment_type == "Hive_RNA")
+Hive2<-subset(compare2, treatment_type == "Hive_DNA")
+C<-subset(compare2, treatment_type == "C_RNA")
+C2<-subset(compare2, treatment_type == "C_DNA")
+BB<-subset(compare2, treatment_type == "BB_RNA")
+BB2<-subset(compare2, treatment_type == "BB_DNA")
+LG<-subset(compare2, treatment_type == "LG_RNA")
+LG2<-subset(compare2, treatment_type == "LG_DNA")
+
+
+wilcox.test(Hive$normalized_16S_copies_per_sample,Hive2$normalized_16S_copies_per_sample,paired = T)
+wilcox.test(C$normalized_16S_copies_per_sample,C2$normalized_16S_copies_per_sample,paired = T)
+wilcox.test(BB$normalized_16S_copies_per_sample,BB2$normalized_16S_copies_per_sample,paired = T)
+wilcox.test(LG$normalized_16S_copies_per_sample,LG2$normalized_16S_copies_per_sample,paired = T)
+
+
+wilcox.test(Hive$log_normalized_16S_copies_per_sample,Hive2$log_normalized_16S_copies_per_sample,paired = T)
+wilcox.test(C$log_normalized_16S_copies_per_sample,C2$log_normalized_16S_copies_per_sample,paired = T)
+wilcox.test(BB$log_normalized_16S_copies_per_sample,BB2$log_normalized_16S_copies_per_sample,paired = T)
+wilcox.test(LG$log_normalized_16S_copies_per_sample,LG2$log_normalized_16S_copies_per_sample,paired = T)
+
+```
+
+
+```{r emmeans_RNA}
+
+RNA_DNA<- read.table("qPCR/data_files/qPCR_data_larva_RNA_and_DNA_day6_normalized.txt", header=TRUE)
+
+## per sample
+RNA<-subset(RNA_DNA, type == "RNA")
+RNA$treatment = factor(RNA$treatment,levels=c("Hive","C","LG","BB"))
+# we should transform data
+log_16S = log(RNA$copies_16S_per_sample)
+
+### set Hive control as reference treatment
+levels(RNA$treatment)
+
+RNA$treatment <- relevel(RNA$treatment, ref="Hive")
+levels(RNA$treatment)
+
+#code to run the ancova test on the transformed data
+ancova2<-lm(log_16S~actin_copies_per_sample+treatment, data=RNA)
+
+#code to create the density plot of residuals
+plot(density(ancova2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova2$residuals)
+qqline(ancova2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova2$residuals~ancova2$fitted.values)
+lines(lowess(ancova2$fitted.values,ancova2$residuals), col="blue")
+text(ancova2$fitted.values, ancova2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova2,type="3")
+
+# Inspect the model diagnostic metrics
+model.metrics <- augment(ancova2) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- RNA %>% anova_test(log(copies_16S_per_sample)~actin_copies_per_sample+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc2 <- RNA %>% mutate(log16S = log(copies_16S_per_sample)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = actin_copies_per_sample,
+    p.adjust.method = "fdr")
+pwc2
+
+pwc2 <- pwc2 %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+ggline(get_emmeans(pwc2), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+  theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+coord_cartesian(ylim = c(7, 20))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#D45E79","cornflowerblue"))
+ggsave("qPCR/plots/emmeans_RNA.png", height = 3.5, width = 5.5)
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(1.190589e-06,5.445316e-01,4.401399e-05)
+p.adjust(pvalues,method="fdr")
+#0.0000036 0.54 0.000066
+```
+
+```{r emmeans_DNA}
+
+RNA_DNA<- read.table("qPCR/data_files/qPCR_data_larva_RNA_and_DNA_day6_normalized.txt", header=TRUE)
+
+## per sample
+DNA<-subset(RNA_DNA, type == "DNA")
+DNA$treatment = factor(DNA$treatment,levels=c("Hive","C","LG","BB"))
+# we should transform data
+log_16S = log(DNA$copies_16S_per_sample)
+
+### set Hive control as reference treatment
+levels(DNA$treatment)
+
+DNA$treatment <- relevel(DNA$treatment, ref="Hive")
+levels(DNA$treatment)
+
+#code to run the ancova test on the transformed data
+ancova2<-lm(log_16S~actin_copies_per_sample+treatment, data=DNA)
+
+#code to create the density plot of residuals
+plot(density(ancova2$residuals))
+
+#code to create a Q-Q plot
+qqnorm(ancova2$residuals)
+qqline(ancova2$residuals, datax = FALSE, distribution = qnorm, probs = c(0.25, 0.75))
+
+#code to create a fitted values vs. residuals plot
+plot(ancova2$residuals~ancova2$fitted.values)
+lines(lowess(ancova2$fitted.values,ancova2$residuals), col="blue")
+text(ancova2$fitted.values, ancova2$residuals, row.names(all_six), cex=0.6, pos=4, col="red")
+
+#code to get the anova table
+Anova(ancova2,type="3")
+
+# Inspect the model diagnostic metrics
+model.metrics <- augment(ancova2) %>%
+  select(-.hat, -.sigma, -.fitted) # Remove details
+head(model.metrics, 10)
+
+shapiro_test(model.metrics$.resid)
+
+model.metrics %>% levene_test(.resid ~ treatment)
+model.metrics %>% 
+  filter(abs(.std.resid) > 3) %>%
+  as.data.frame()
+
+res.aov <- DNA %>% anova_test(log(copies_16S_per_sample)~actin_copies_per_sample+treatment)
+get_anova_table(res.aov)
+
+# Pairwise comparisons
+pwc2 <- DNA %>% mutate(log16S = log(copies_16S_per_sample)) %>%
+  emmeans_test(
+    log16S~treatment, covariate = actin_copies_per_sample,
+    p.adjust.method = "fdr")
+pwc2
+
+pwc2 <- pwc2 %>% add_xy_position(x = "treatment", fun = "mean_se")
+
+ggline(get_emmeans(pwc2), x = "treatment", y = "emmean", plot_type = c("p"), color = "treatment", size = 3) + geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.4,size=2, colour="gray40", alpha=0.4)+stat_pvalue_manual(pwc, hide.ns = TRUE, tip.length = FALSE) +labs(subtitle = get_test_label(res.aov, detailed = TRUE),caption = get_pwc_label(pwc))+theme_classic()+theme(legend.position = "none")+
+  theme(axis.title.x = element_blank())+theme(axis.title.y = element_text(size=15, face="bold", colour="gray40"))+theme(axis.text.y = element_text(size=13))+theme(axis.text.x = element_text(size=15, face="bold"))+coord_cartesian(ylim = c(7, 20))+ scale_color_manual(values=c("#55596a", "#6ebe9f","#D45E79","cornflowerblue"))
+ggsave("qPCR/plots/emmeans_DNA.png", height = 3.5, width = 5.5)
+
+#pairwise comparisons against Hive control
+#treatment order of plot
+pvalues <- c(5.077779e-10,1.877075e-01,1.3.826490e-08)
+p.adjust(pvalues,method="fdr")
+#<0.0001 0.2 <0.0001
+```
+
+
+
+
+
+
+
+# combined figure creation
+
+```{r, figure_1}
+
+legend2 <- get_legend(PCoA_adults)
+legend2<-as_ggplot(legend2)
+ggsave("microbiome/combined_runs/figures/legend2.png", height = 1, width = 11)
+
+legend3 <- get_legend(taxa_larva_adults)
+legend3<-as_ggplot(legend3)
+ggsave("microbiome/combined_runs/figures/legend3.png", height = 2, width = 11)
+
+Observed2<-Observed_adults+theme(legend.position = "none")
+PCoA2<-PCoA_adults+theme(legend.position = "none")
+Observed3<-Observed_larvae+theme(legend.position = "none")
+PCoA3<-PCoA_larvae+theme(legend.position = "none")
+larvae_qPCR<-larva_qpcr+theme(legend.position = "none")
+adult_qPCR<-adult_qpcr+theme(legend.position = "none")
+
+library(egg) #helps to correctly align the plots
+
+figure_1 <- "microbiome/combined_runs/figures/manuscript_main_all_new.png"
+png(figure_1, 11 * plot_res, 9 * plot_res, res = plot_res)
+ggarrange(PCoA3,PCoA2,Observed3,Observed2,larvae_qPCR,adult_qPCR,nrow=3) 
+invisible(dev.off())
+knitr::include_graphics(figure_1, dpi = plot_res)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
