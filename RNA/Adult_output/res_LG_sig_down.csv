@@ -1,3 +1,0 @@
-,Gene_ID,baseMean,log2FoldChange,lfcSE,stat,pvalue,padj,description
-1,GeneID_725124,127.5229919,-2.790332151,0.628343902,-4.440772231,8.96E-06,0.01766738,NF-kappa-B inhibitor cactus 1
-4,LOC411091,204.0622783,-1.587289264,0.376919446,-4.211216164,2.54E-05,0.035759508,RNA-binding protein 34
